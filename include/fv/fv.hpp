@@ -97,10 +97,11 @@ inline Task<Resp> Get (Req _r, const std::chrono::system_clock::duration &_exp) 
 		_ss << "\r\n";
 
 		// dns resolve
+		_req_data->_index.store (0);
 		asio_udp::resolver::results_type _resolve_data = co_await _req_data->_resolver.async_resolve (_host, use_awaitable);
-		_req_data->_index.store (1);
 
 		// connect
+		_req_data->_index.store (1);
 		uint16_t _port = _schema == "http" ? 80 : 443;
 		auto _dest = asio_tcp::endpoint (boost::asio::ip::address::from_string (_host), _port);
 		co_await _req_data->_socket.async_connect (_dest, use_awaitable);

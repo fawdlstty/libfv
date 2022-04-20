@@ -4,11 +4,16 @@
 
 
 #include <cstdint>
+#include <exception>
 #include <format>
 #include <map>
+#include <memory>
+#include <optional>
+#include <regex>
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <variant>
 
 #include "Tasks.hpp"
 
@@ -17,7 +22,17 @@
 namespace fv {
 enum class ContentType { KvPair, Json, Form };
 
-struct Req {
+struct Exception: public std::exception {
+	Exception (std::string _err): m_err (_err) {}
+	char const *what () const override { return m_err.c_str (); }
+
+private:
+	std::string m_err = "";
+};
+
+
+
+struct Request {
 	std::string Url = "";
 	std::string Content = "";
 	std::map<std::string, std::string> Headers = DefaultHeaders ();
@@ -30,11 +45,59 @@ private:
 	inline static std::map<std::string, std::string> m_def_headers { { "User-Agent", "libfv-0.0.1" }, { "Accept-Encoding", "gzip" } };
 };
 
-struct Resp {
+
+
+struct Response {
 	int HttpCode = -1;
 	std::string Content = "";
 	std::string Error = "";
 	std::map<std::string, std::string> Headers;
+};
+
+
+
+struct Connection {
+	asio_tcp::resolver ResolverImpl;
+	asio_tcp::socket Socket;
+	//std::optional<boost::asio::ssl::stream<asio_tcp::socket>> Ssl;
+
+	Connection (boost::asio::io_context &_ctx): ResolverImpl (_ctx), Socket (_ctx) {}
+	~Connection () { Cancel (); }
+
+	Task<bool> Connect (std::string _host, uint16_t _port/*, bool _ssl*/) {
+		std::regex _r { "(\\d+\\.){3}\\d+" };
+		if (std::regex_match (_host, _r)) {
+			co_await Socket.async_connect (asio_tcp::endpoint { boost::asio::ip::address::from_string (_host), _port }, use_awaitable);
+		} else {
+			asio_tcp::endpoint _endpoint = (co_await ResolverImpl.async_resolve (_host, use_awaitable))->endpoint ();
+			co_await Socket.async_connect (asio_tcp::endpoint { _endpoint.address (), _port }, use_awaitable);
+		}
+		co_return Socket.is_open ();
+	}
+
+	Task<size_t> Send (char *_data, size_t _size) {
+		if (!Socket.is_open ())
+			co_return 0;
+		size_t _sended = 0;
+		while (_sended < _size) {
+			size_t _tmp_send = co_await Socket.async_send (boost::asio::buffer (&_data [_sended], _size - _sended), use_awaitable);
+			if (_tmp_send == 0)
+				co_return _sended;
+			_sended += _tmp_send;
+		}
+		co_return _sended;
+	}
+
+	Task<size_t> Recv (char *_data, size_t _size) {
+		if (!Socket.is_open ())
+			co_return 0;
+		co_return co_await Socket.async_read_some (boost::asio::buffer (_data, _size), use_awaitable);
+	}
+
+	void Cancel () {
+		ResolverImpl.cancel ();
+		Socket.cancel ();
+	}
 };
 
 
@@ -54,39 +117,27 @@ inline std::tuple<std::string, std::string, std::string> _parse_url (std::string
 	}
 }
 
-inline Task<Resp> Get (std::string _url, const std::chrono::system_clock::duration &_exp = std::chrono::milliseconds (0)) {
-	co_return co_await Get (Req { .Url = _url }, _exp);
+inline Task<Response> Get (std::string _url, const std::chrono::system_clock::duration &_exp = std::chrono::milliseconds (0)) {
+	co_return co_await Get (Request { .Url = _url }, _exp);
 }
 
-inline Task<Resp> Get (Req _r, const std::chrono::system_clock::duration &_exp) {
-	struct req_data_t {
-		std::atomic<int32_t> _index;
-		asio_udp::resolver _resolver;
-		asio_tcp::socket _socket;
-		AsyncTimer _timer;
-		req_data_t (boost::asio::io_context &_ctx): _resolver (_ctx), _socket (_ctx) { _index.store (0); }
-	};
-	auto _req_data = std::make_shared<req_data_t> (Tasks::GetContext ());
-	_req_data->_timer.WaitCallback (_exp, std::function ([_wdata = std::weak_ptr (_req_data)] (TimerType _ty) -> Task<void> {
-		if (_ty == TimerType::Timeout) {
-			auto _data = _wdata.lock ();
-			if (_data) {
-				int _index = _data->_index.load ();
-				if (_index == 0) {
-					_data->_resolver.cancel ();
-				} else if (_index <= 3) {
-					if (_data->_socket.is_open ())
-						_data->_socket.cancel ();
-				}
-			}
-		}
-		co_return;
-	}));
-	std::string _schema = "", _host = "", _path = "";
+inline Task<Response> Get (Request _r, const std::chrono::system_clock::duration &_exp) {
+	auto _conn = std::make_shared<Connection> (Tasks::GetContext ());
+	AsyncTimer _timer {};
+	_timer.WaitCallback (_exp, [_tconn = std::weak_ptr (_conn)] ()->Task<void> {
+		auto _conn = _tconn.lock ();
+		if (_conn)
+			_conn->Cancel ();
+	});
 
+	auto [_schema, _host, _path] = _parse_url (_r.Url);
+	uint16_t _port = _schema == "http" ? 80 : 443;
 	try {
-		// make data
-		std::tie (_schema, _host, _path) = _parse_url (_r.Url);
+		// connect
+		if (!co_await _conn->Connect (_host, _port))
+			throw std::exception ("无法连接远程服务器");
+
+		// generate data
 		std::stringstream _ss;
 		_ss << "GET " << _path << " HTTP/1.1\r\n";
 		if (!_r.Headers.contains ("Host"))
@@ -96,47 +147,30 @@ inline Task<Resp> Get (Req _r, const std::chrono::system_clock::duration &_exp) 
 			_ss << _key << ": " << _value << "\r\n";
 		_ss << "\r\n";
 
-		// dns resolve
-		_req_data->_index.store (0);
-		asio_udp::resolver::results_type _resolve_data = co_await _req_data->_resolver.async_resolve (_host, use_awaitable);
-
-		// connect
-		_req_data->_index.store (1);
-		uint16_t _port = _schema == "http" ? 80 : 443;
-		auto _dest = asio_tcp::endpoint (boost::asio::ip::address::from_string (_host), _port);
-		co_await _req_data->_socket.async_connect (_dest, use_awaitable);
-		if (!_req_data->_socket.is_open ()) {
-			_req_data->_timer.Cancel ();
-			co_return Resp {};
-		}
-
 		// send
-		_req_data->_index.store (2);
 		std::string _data = _ss.str ();
-		size_t _count = co_await _req_data->_socket.async_send (_data, use_awaitable);
-		if (_count < _data.size ()) {
-			_req_data->_timer.Cancel ();
-			co_return Resp { .Error = std::format ("发送信息不完全，应发 {} 字节，实发 {} 字节。", _data.size (), _count) };
-		}
+		size_t _count = co_await _conn->Send (_data.data (), _data.size ());
+		if (_count < _data.size ())
+			throw Exception (std::format ("发送信息不完全，应发 {} 字节，实发 {} 字节。", _data.size (), _count));
 
 		// recv
-		_req_data->_index.store (3);
+		char _buf [1024];
 		// TODO
 
-		// 结束
-		_req_data->_index.store (4);
-		_req_data->_timer.Cancel ();
-		co_return Resp {};
+		// make
+		// TODO
+		co_return Response {};
+	} catch (std::exception &_e) {
+		_timer.Cancel ();
+		co_return Response { .Error = _e.what () };
 	} catch (...) {
-		_req_data->_timer.Cancel ();
-		int _index = _req_data->_index.load ();
-		const static std::map<int, std::string> s_err_msg { { 0, "域名解析失败" }, { 1, "无法建立链接" }, { 2, "发送信息超时" }, { 3, "接收信息超时" } };
-		co_return Resp { .Error = s_err_msg.contains (_index) ? s_err_msg [_index] : "未知异常" };
+		_timer.Cancel ();
+		co_return Response { .Error = "未知异常" };
 	}
 }
 
-inline Task<Resp> Post (std::string _url, std::string _data, ContentType _ctype) {
-	co_return Resp {};
+inline Task<Response> Post (std::string _url, std::string _data, ContentType _ctype) {
+	co_return Response {};
 }
 }
 

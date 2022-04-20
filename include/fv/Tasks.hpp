@@ -9,9 +9,11 @@
 #include <semaphore>
 #include <string>
 #include <thread>
+#include <type_traits>
 
 #define BOOST_ASIO_HAS_CO_AWAIT
 #include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #define Task boost::asio::awaitable
 using asio_tcp = boost::asio::ip::tcp;
 using asio_udp = boost::asio::ip::udp;
@@ -145,26 +147,28 @@ private:
 //
 // 定时器
 //
-enum class TimerType { Timeout, Cancel };
 struct AsyncTimer {
 	AsyncTimer () { m_sema.Acquire (); }
 	~AsyncTimer () { Cancel (); }
 
-	Task<TimerType> WaitAsync (std::chrono::system_clock::duration _elapse) {
-		bool _acq = co_await m_sema.AcquireForAsync (_elapse);
-		co_return _acq ? TimerType::Cancel : TimerType::Timeout;
+	Task<bool> WaitTimeoutAsync (std::chrono::system_clock::duration _elapse) {
+		co_return !co_await m_sema.AcquireForAsync (_elapse);
 	}
 
-	void WaitCallback (std::chrono::system_clock::duration _elapse, std::function<void (TimerType)> _cb) {
-		Tasks::RunAsync ([this] (std::chrono::system_clock::duration _elapse, std::function<void (TimerType)> _cb) -> Task<void> {
-			_cb (co_await WaitAsync (_elapse));
-		}, _elapse, _cb);
-	}
-
-	void WaitCallback (std::chrono::system_clock::duration _elapse, std::function<Task<void> (TimerType)> _cb) {
-		Tasks::RunAsync ([this] (std::chrono::system_clock::duration _elapse, std::function<Task<void> (TimerType)> _cb) -> Task<void> {
-			co_await _cb (co_await WaitAsync (_elapse));
-		}, _elapse, _cb);
+	template<typename F>
+	void WaitCallback (const std::chrono::system_clock::duration &_elapse, F &&_cb) {
+		Tasks::RunAsync ([this] (std::chrono::system_clock::duration _elapse, F &&_cb) -> Task<void> {
+			if (co_await WaitTimeoutAsync (_elapse)) {
+				using _TRet = typename std::decay<decltype (_cb ())>::type;
+				if constexpr (std::is_same<_TRet, void>::value) {
+					_cb ();
+				} else if constexpr (std::is_same<_TRet, Task<void>>::value) {
+					co_await _cb ();
+				} else {
+					throw std::exception ("不支持的回调函数返回类型");
+				}
+			}
+		}, _elapse, std::forward (_cb));
 	}
 
 	void Cancel () {

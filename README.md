@@ -2,7 +2,7 @@
 
 English | [简体中文](./README.zh.md)
 
-A fast C++ async http library based on boost.asio.
+A fast C++20 async http library based on boost.asio.
 
 Example:
 

@@ -2,7 +2,7 @@
 
 [English](./README.md) | 简体中文
 
-基于 boost.asio 的 C++ 异步 HTTP 库。
+基于 boost.asio 的 C++20 异步 HTTP 库。
 
 示例：
 

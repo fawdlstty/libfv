@@ -10,22 +10,22 @@ Example:
 // include headers
 #include <fv/fv.hpp>
 
-// init (once)
+// global init
 Tasks::Start (true);
 
-// request
+// HttpGet
 fv::Response _r = co_await fv::Get ("http://www.fawdlstty.com");
 std::cout << _r.Content;
 
-// release (once)
+// global release
 Tasks::Stop ();
 ```
 
 Roadmap:
 
+- [x] TCP
 - [x] HttpGet
 - [ ] HttpPost
-- [ ] TCP
 - [ ] UDP
 - [ ] Websocket
 - [ ] SSL

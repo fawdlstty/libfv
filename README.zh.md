@@ -10,22 +10,22 @@
 // 引入头文件
 #include <fv/fv.hpp>
 
-// 初始化（调用一次）
+// 全局初始化
 Tasks::Start (true);
 
-// 发起请求
+// HttpGet
 fv::Response _r = co_await fv::Get ("http://www.fawdlstty.com");
 std::cout << _r.Content;
 
-// 释放（调用一次）
+// 全局释放
 Tasks::Stop ();
 ```
 
 计划：
 
+- [x] TCP
 - [x] HttpGet
 - [ ] HttpPost
-- [ ] TCP
 - [ ] UDP
 - [ ] Websocket
 - [ ] SSL

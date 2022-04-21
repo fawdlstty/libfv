@@ -1,27 +1,27 @@
-# libfv
+ï»¿# libfv
 
-[English](./README.md) | ¼òÌåÖĞÎÄ
+[English](./README.md) | ç®€ä½“ä¸­æ–‡
 
-»ùÓÚ boost.asio µÄ C++ Òì²½ HTTP ¿â¡£
+åŸºäº boost.asio çš„ C++ å¼‚æ­¥ HTTP åº“ã€‚
 
-Ê¾Àı£º
+ç¤ºä¾‹ï¼š
 
 ```cpp
-// ÒıÈëÍ·ÎÄ¼ş
+// å¼•å…¥å¤´æ–‡ä»¶
 #include <fv/fv.hpp>
 
-// ³õÊ¼»¯£¨µ÷ÓÃÒ»´Î£©
+// åˆå§‹åŒ–ï¼ˆè°ƒç”¨ä¸€æ¬¡ï¼‰
 Tasks::Start (true);
 
-// ·¢ÆğÇëÇó
+// å‘èµ·è¯·æ±‚
 fv::Response _r = co_await fv::Get ("http://www.fawdlstty.com");
 std::cout << _r.Content;
 
-// ÊÍ·Å£¨µ÷ÓÃÒ»´Î£©
+// é‡Šæ”¾ï¼ˆè°ƒç”¨ä¸€æ¬¡ï¼‰
 Tasks::Stop ();
 ```
 
-¼Æ»®£º
+è®¡åˆ’ï¼š
 
 - [x] HttpGet
 - [ ] HttpPost

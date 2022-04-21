@@ -5,6 +5,12 @@ VisualStudioVersion = 16.0.32228.343
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libfv.test", "libfv.test\libfv.test.vcxproj", "{A19E6B72-896D-49D3-921D-AD325AD34650}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{A6820F4B-0E05-4A2F-BF2D-14B939A5C5B0}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+		README.zh.md = README.zh.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64

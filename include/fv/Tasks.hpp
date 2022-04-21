@@ -17,6 +17,7 @@
 #define Task boost::asio::awaitable
 using asio_tcp = boost::asio::ip::tcp;
 using asio_udp = boost::asio::ip::udp;
+namespace asio_ssl = boost::asio::ssl;
 using asio_address = boost::asio::ip::address;
 using boost::asio::use_awaitable;
 
@@ -156,19 +157,19 @@ struct AsyncTimer {
 	}
 
 	template<typename F>
-	void WaitCallback (const std::chrono::system_clock::duration &_elapse, F &&_cb) {
-		Tasks::RunAsync ([this] (std::chrono::system_clock::duration _elapse, F &&_cb) -> Task<void> {
-			if (co_await WaitTimeoutAsync (_elapse)) {
-				using _TRet = typename std::decay<decltype (_cb ())>::type;
-				if constexpr (std::is_same<_TRet, void>::value) {
-					_cb ();
-				} else if constexpr (std::is_same<_TRet, Task<void>>::value) {
-					co_await _cb ();
-				} else {
-					throw std::exception ("不支持的回调函数返回类型");
-				}
-			}
-		}, _elapse, std::forward (_cb));
+	void WaitCallback (std::chrono::system_clock::duration _elapse, F &&_cb) {
+		//Tasks::RunAsync ([this] (std::chrono::system_clock::duration _elapse, F &&_cb) -> Task<void> {
+		//	if (co_await WaitTimeoutAsync (_elapse)) {
+		//		using _TRet = typename std::decay<decltype (_cb ())>;
+		//		if constexpr (std::is_same<_TRet, void>::value) {
+		//			_cb ();
+		//		} else if constexpr (std::is_same<_TRet, Task<void>>::value) {
+		//			co_await _cb ();
+		//		} else {
+		//			throw std::exception ("不支持的回调函数返回类型");
+		//		}
+		//	}
+		//}, _elapse, std::move (_cb));
 	}
 
 	void Cancel () {

@@ -1,10 +1,10 @@
 # libfv
 
-English | [简体中文](./README.zh.md)
+[English](./README.md) | 简体中文
 
-A fast C++ async http library based on boost.asio.
+基于 boost.asio 的 C++ 异步 HTTP 库。
 
-Example:
+示例：
 
 ```cpp
 #include <fv/fv.hpp>
@@ -15,7 +15,7 @@ fv::Response _r = co_await fv::Get ("http://www.fawdlstty.com");
 std::cout << _r.Content;
 ```
 
-Roadmap:
+计划：
 
 - [x] HttpGet
 - [ ] HttpPost

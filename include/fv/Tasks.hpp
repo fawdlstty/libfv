@@ -114,6 +114,7 @@ struct Tasks {
 
 	// 启动异步任务池
 	static void Start (bool _new_thread) {
+		::srand ((unsigned int) ::time (NULL));
 		static auto s_func = [] () {
 			m_running.store (true);
 			while (m_run.load ()) {
@@ -157,19 +158,19 @@ struct AsyncTimer {
 	}
 
 	template<typename F>
-	void WaitCallback (std::chrono::system_clock::duration _elapse, F &&_cb) {
-		//Tasks::RunAsync ([this] (std::chrono::system_clock::duration _elapse, F &&_cb) -> Task<void> {
-		//	if (co_await WaitTimeoutAsync (_elapse)) {
-		//		using _TRet = typename std::decay<decltype (_cb ())>;
-		//		if constexpr (std::is_same<_TRet, void>::value) {
-		//			_cb ();
-		//		} else if constexpr (std::is_same<_TRet, Task<void>>::value) {
-		//			co_await _cb ();
-		//		} else {
-		//			throw std::exception ("不支持的回调函数返回类型");
-		//		}
-		//	}
-		//}, _elapse, std::move (_cb));
+	void WaitCallback (std::chrono::system_clock::duration _elapse, F _cb) {
+		Tasks::RunAsync ([this] (std::chrono::system_clock::duration _elapse, F _cb) -> Task<void> {
+			if (co_await WaitTimeoutAsync (_elapse)) {
+				using _TRet = typename std::decay<decltype (_cb ())>;
+				if constexpr (std::is_same<_TRet, void>::value) {
+					_cb ();
+				} else if constexpr (std::is_same<_TRet, Task<void>>::value) {
+					co_await _cb ();
+				} else {
+					throw std::exception ("不支持的回调函数返回类型");
+				}
+			}
+		}, _elapse, _cb);
 	}
 
 	void Cancel () {

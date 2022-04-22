@@ -21,12 +21,18 @@
     <ClCompile Include="libfv.test.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="tmp.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\include\fv\fv.hpp">
+    <ClInclude Include="..\include\fv\fv.h">
       <Filter>头文件\include/fv</Filter>
     </ClInclude>
     <ClInclude Include="..\include\fv\Tasks.hpp">
+      <Filter>头文件\include/fv</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fv\fv-impl.hpp">
       <Filter>头文件\include/fv</Filter>
     </ClInclude>
   </ItemGroup>

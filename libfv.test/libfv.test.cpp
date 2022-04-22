@@ -10,7 +10,7 @@
 
 
 
-#include <fv/fv.hpp>
+#include <fv/fv.h>
 
 #include <conio.h>
 #include <iostream>
@@ -20,7 +20,13 @@
 
 
 Task<void> _test_async () {
-	fv::Response _r = co_await fv::Get ("http://www.fawdlstty.com");
+	//fv::Response _r = co_await fv::Get ("http://www.fawdlstty.com"
+	//	//,fv::server ("106.75.237.200"),
+	//	//fv::user_agent ("Mozilla 4.0 Chromiiii 100 (Windows 12)"),
+	//	//fv::http_header ("MyHeader", "MyValue"),
+	//	//fv::auth ("admin", "123456")
+	//);
+	fv::Response _r = co_await fv::Post ("https://www.fawdlstty.com", fv::body_kv ("a", "aaa"), fv::body_kv ("b", "333"));
 	std::cout << _r.Content;
 }
 
@@ -28,9 +34,9 @@ int main () {
 	// 控制台utf8支持
 	::SetConsoleOutputCP (65001);
 	//
-	Tasks::Start (true);
-	Tasks::RunAsync (_test_async);
+	fv::Tasks::Start (true);
+	fv::Tasks::RunAsync (_test_async);
 	::_getch ();
-	Tasks::Stop ();
+	fv::Tasks::Stop ();
 	return 0;
 }

@@ -1,31 +1,136 @@
 ﻿# libfv
 
-English | [简体中文](./README.zh.md)
+基于 boost.asio 的 C++20 纯头文件异步 HTTP 库
 
-A fast C++20 async http library based on boost.asio.
+## 配置环境
 
-Example:
+步骤0：配置 `vcpkg` 环境
 
-```cpp
-// include headers
-#include <fv/fv.hpp>
-
-// global init
-Tasks::Start (true);
-
-// HttpGet
-fv::Response _r = co_await fv::Get ("http://www.fawdlstty.com");
-std::cout << _r.Content;
-
-// global release
-Tasks::Stop ();
+```
+vcpkg install boost-asio:x86-windows-static
+vcpkg install nlohmann-json:x86-windows-static
 ```
 
-Roadmap:
+步骤1：克隆项目并初始化子模块
 
-- [x] TCP
-- [x] HttpGet
-- [ ] HttpPost
+```
+git clone https://github.com/fawdlstty/libfv
+git.exe submodule update --init --recursive
+```
+
+步骤2：创建一个空cpp文件并引入libfv实现文件
+
+```cpp
+#include <fv/fv-impl.hpp>
+```
+
+步骤3：项目头文件搜索路径加入 `仓库根目录/gzip-hpp/include`
+
+步骤4：引入头文件
+
+```cpp
+#include <fv/fv.hpp>
+```
+
+步骤5：主函数进入及退出时调用初始化、释放函数
+
+```cpp
+// 初始化
+fv::Tasks::Start (true);
+
+// 释放
+fv::Tasks::Stop ();
+```
+
+## 使用手册
+
+### 发起 HttpGet 请求
+
+```cpp
+fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com");
+```
+
+### 发起 HttpPost 请求
+
+```cpp
+fv::Response _r = co_await fv::Post ("https://www.fawdlstty.com", fv::body_kv ("a", "aaa"));
+```
+
+### 提交文件
+
+```cpp
+fv::Response _r = co_await fv::Post ("https://www.fawdlstty.com", fv::body_file ("a", "file_name.txt", "file content..."));
+```
+
+### 发起 HttpPost 请求并提交原始内容
+
+```cpp
+fv::Response _r = co_await fv::Post ("https://www.fawdlstty.com", fv::body_raw ("application/octet-stream", "aaa"));
+```
+
+共支持6种HTTP请求，还可使用 `fv::Head`、`fv::Option`、`fv::Put`、`fv::Delete` 方法。其中 `fv::body_raw` 参数只能用于 `fv::Post` 和 `fv::Put`。
+
+### 指定请求超时时长
+
+```cpp
+fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::timeout (std::chrono::seconds (10)));
+```
+
+### 向指定服务器发起请求
+
+```cpp
+fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::server ("106.75.237.200"));
+```
+
+### 禁用tcp延迟
+
+```cpp
+fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::no_delay (true));
+```
+
+### 自定义http头
+
+```cpp
+fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::header ("X-WWW-Router", "123456789"));
+```
+
+### 自定义鉴权
+
+```cpp
+// jwt bearer 鉴权
+fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::authorization ("Bearer XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX=="));
+// 用户名密码鉴权
+fv::Response _r1 = co_await fv::Get ("https://www.fawdlstty.com", fv::authorization ("admin", "123456"));
+```
+
+### 设置http头 `Connection` 属性
+
+```cpp
+fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::connection ("keep-alive"));
+```
+
+### 设置http头 `Content-Type` 属性
+
+```cpp
+fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::content_type ("application/octet-stream"));
+```
+
+### 设置http头 `Referer` 属性
+
+```cpp
+fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::referer ("https://t.cn"));
+```
+
+### 设置http头 `User-Agent` 属性
+
+```cpp
+fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::user_agent ("Mozilla/4.0 Chrome 2333 (Windows 20) like gecko"));
+```
+
+## 计划
+
+- [ ] TCP
+- [x] Http(s)
 - [ ] UDP
 - [ ] Websocket
 - [ ] SSL

@@ -47,25 +47,25 @@ fv::Tasks::Stop ();
 ### 发起 HttpGet 请求
 
 ```cpp
-fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com");
+fv::Response _r = co_await fv::Get ("https://t.cn");
 ```
 
 ### 发起 HttpPost 请求
 
 ```cpp
-fv::Response _r = co_await fv::Post ("https://www.fawdlstty.com", fv::body_kv ("a", "aaa"));
+fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_kv ("a", "aaa"));
 ```
 
 ### 提交文件
 
 ```cpp
-fv::Response _r = co_await fv::Post ("https://www.fawdlstty.com", fv::body_file ("a", "file_name.txt", "file content..."));
+fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_file ("a", "file_name.txt", "file content..."));
 ```
 
 ### 发起 HttpPost 请求并提交原始内容
 
 ```cpp
-fv::Response _r = co_await fv::Post ("https://www.fawdlstty.com", fv::body_raw ("application/octet-stream", "aaa"));
+fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_raw ("application/octet-stream", "aaa"));
 ```
 
 共支持6种HTTP请求，还可使用 `fv::Head`、`fv::Option`、`fv::Put`、`fv::Delete` 方法。其中 `fv::body_raw` 参数只能用于 `fv::Post` 和 `fv::Put`。
@@ -73,58 +73,58 @@ fv::Response _r = co_await fv::Post ("https://www.fawdlstty.com", fv::body_raw (
 ### 指定请求超时时长
 
 ```cpp
-fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::timeout (std::chrono::seconds (10)));
+fv::Response _r = co_await fv::Get ("https://t.cn", fv::timeout (std::chrono::seconds (10)));
 ```
 
 ### 向指定服务器发起请求
 
 ```cpp
-fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::server ("106.75.237.200"));
+fv::Response _r = co_await fv::Get ("https://t.cn", fv::server ("106.75.237.200"));
 ```
 
 ### 禁用tcp延迟
 
 ```cpp
-fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::no_delay (true));
+fv::Response _r = co_await fv::Get ("https://t.cn", fv::no_delay (true));
 ```
 
 ### 自定义http头
 
 ```cpp
-fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::header ("X-WWW-Router", "123456789"));
+fv::Response _r = co_await fv::Get ("https://t.cn", fv::header ("X-WWW-Router", "123456789"));
 ```
 
 ### 自定义鉴权
 
 ```cpp
 // jwt bearer 鉴权
-fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::authorization ("Bearer XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX=="));
+fv::Response _r = co_await fv::Get ("https://t.cn", fv::authorization ("Bearer XXXXXXXXXXXXX=="));
 // 用户名密码鉴权
-fv::Response _r1 = co_await fv::Get ("https://www.fawdlstty.com", fv::authorization ("admin", "123456"));
+fv::Response _r1 = co_await fv::Get ("https://t.cn", fv::authorization ("admin", "123456"));
 ```
 
 ### 设置http头 `Connection` 属性
 
 ```cpp
-fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::connection ("keep-alive"));
+fv::Response _r = co_await fv::Get ("https://t.cn", fv::connection ("keep-alive"));
 ```
 
 ### 设置http头 `Content-Type` 属性
 
 ```cpp
-fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::content_type ("application/octet-stream"));
+fv::Response _r = co_await fv::Get ("https://t.cn", fv::content_type ("application/octet-stream"));
 ```
 
 ### 设置http头 `Referer` 属性
 
 ```cpp
-fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::referer ("https://t.cn"));
+fv::Response _r = co_await fv::Get ("https://t.cn", fv::referer ("https://t.cn"));
 ```
 
 ### 设置http头 `User-Agent` 属性
 
 ```cpp
-fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com", fv::user_agent ("Mozilla/4.0 Chrome 2333 (Windows 20) like gecko"));
+fv::Response _r = co_await fv::Get ("https://t.cn", fv::user_agent ("Mozilla/4.0 Chrome 2333 like gecko"));
 ```
 
 ## 计划

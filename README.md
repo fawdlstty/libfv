@@ -18,13 +18,13 @@ git clone https://github.com/fawdlstty/libfv
 git.exe submodule update --init --recursive
 ```
 
-步骤2：创建一个空cpp文件并引入libfv实现文件。这个文件最好不要加入其他代码
+步骤2：项目头文件搜索路径加入 `仓库根目录/include`、`仓库根目录/gzip-hpp/include`
+
+步骤3：创建一个空cpp文件并引入libfv实现文件。这个文件最好不要加入其他代码
 
 ```cpp
 #include <fv/fv-impl.hpp>
 ```
-
-步骤3：项目头文件搜索路径加入 `仓库根目录/include`、`仓库根目录/gzip-hpp/include`
 
 步骤4：在需要使用api的源码文件里引入库头文件
 

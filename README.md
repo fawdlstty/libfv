@@ -24,7 +24,7 @@ git.exe submodule update --init --recursive
 #include <fv/fv-impl.hpp>
 ```
 
-步骤3：项目头文件搜索路径加入 `仓库根目录/gzip-hpp/include`
+步骤3：项目头文件搜索路径加入 `仓库根目录/include`、`仓库根目录/gzip-hpp/include`
 
 步骤4：在需要使用api的源码文件里引入库头文件
 

@@ -59,7 +59,7 @@ fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_kv ("a", "aaa"));
 ### 提交文件
 
 ```cpp
-fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_file ("a", "file_name.txt", "file content..."));
+fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_file ("a", "filename.txt", "content..."));
 ```
 
 ### 发起 HttpPost 请求并提交原始内容
@@ -124,7 +124,7 @@ fv::Response _r = co_await fv::Get ("https://t.cn", fv::referer ("https://t.cn")
 ### 设置http头 `User-Agent` 属性
 
 ```cpp
-fv::Response _r = co_await fv::Get ("https://t.cn", fv::user_agent ("Mozilla/4.0 Chrome 2333 like gecko"));
+fv::Response _r = co_await fv::Get ("https://t.cn", fv::user_agent ("Mozilla/4.0 Chrome 2333"));
 ```
 
 ## 计划

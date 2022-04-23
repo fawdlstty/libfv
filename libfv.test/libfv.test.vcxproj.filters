@@ -29,9 +29,6 @@
     <ClInclude Include="..\include\fv\fv.h">
       <Filter>头文件\include/fv</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fv\Tasks.hpp">
-      <Filter>头文件\include/fv</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\fv\fv-impl.hpp">
       <Filter>头文件\include/fv</Filter>
     </ClInclude>

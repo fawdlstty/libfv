@@ -177,7 +177,6 @@
   <ItemGroup>
     <ClInclude Include="..\include\fv\fv-impl.hpp" />
     <ClInclude Include="..\include\fv\fv.h" />
-    <ClInclude Include="..\include\fv\Tasks.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -41,6 +41,26 @@ size_t fv::CaseInsensitiveHash::operator() (const std::string &str) const noexce
 
 
 
+std::string percent_str_encode (std::string_view data) {
+	const static char *hex_char = "0123456789ABCDEF";
+	std::string ret = "";
+	for (size_t i = 0; i < data.size (); ++i) {
+		char ch = data [i];
+		if (isalnum ((unsigned char) ch) || ch == '-' || ch == '_' || ch == '.' || ch == '~') {
+			ret += ch;
+		} else if (ch == ' ') {
+			ret += "+";
+		} else {
+			ret += '%';
+			ret += hex_char [((unsigned char) ch) >> 4];
+			ret += hex_char [((unsigned char) ch) % 16];
+		}
+	}
+	return ret;
+}
+
+
+
 Task<void> fv::AsyncSemaphore::AcquireAsync () {
 	while (!m_sp.try_acquire ()) {
 		boost::asio::steady_timer timer (co_await boost::asio::this_coro::executor);
@@ -199,11 +219,20 @@ std::string fv::Request::Serilize (Method _method, std::string _host, std::strin
 			}
 			_ss1 << _boundary << "--";
 		} else if (_content_type == "application/json") {
-			// application/json
-			// TODO
+			nlohmann::json _j;
+			for (auto _item : ContentRaw) {
+				body_kv &_data = std::get<0> (_item);
+				_j [_data.Name] = _data.Value;
+			}
+			_ss1 << _j.dump ();
 		} else {
 			// application/x-www-form-urlencoded
-			// TODO
+			for (size_t i = 0; i < ContentRaw.size (); ++i) {
+				if (i > 0)
+					_ss1 << '&';
+				body_kv &_data = std::get<0> (ContentRaw [i]);
+				_ss1 << percent_str_encode (_data.Name) << '=' << percent_str_encode (_data.Value);
+			}
 		}
 		Content = _ss1.str ();
 	}

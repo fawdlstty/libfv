@@ -19,7 +19,7 @@
 
 
 
-Task<void> _test_async () {
+Task<void> async_func () {
 	//fv::Response _r = co_await fv::Get ("http://www.fawdlstty.com"
 	//	//,fv::server ("106.75.237.200"),
 	//	//fv::user_agent ("Mozilla 4.0 Chromiiii 100 (Windows 12)"),
@@ -35,7 +35,7 @@ int main () {
 	::SetConsoleOutputCP (65001);
 	//
 	fv::Tasks::Start (true);
-	fv::Tasks::RunAsync (_test_async);
+	fv::Tasks::RunAsync (async_func);
 	::_getch ();
 	fv::Tasks::Stop ();
 	return 0;

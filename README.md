@@ -42,6 +42,21 @@ fv::Tasks::Start (true);
 fv::Tasks::Stop ();
 ```
 
+步骤6：创建异步函数时，通过 `fv::Tasks::RunAsync` 加入异步执行队列
+
+```cpp
+// 异步函数
+Task<void> async_func () {
+	fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_kv ("a", "aaa"));
+	std::cout << _r.Content;
+}
+
+// 执行异步函数
+fv::Tasks::RunAsync (async_func);
+```
+
+现在我们已经创建好了异步函数，可以自由在里面编写异步代码啦！
+
 ## 使用手册
 
 ### 发起 HttpGet 请求

@@ -121,7 +121,7 @@ std::atomic_bool fv::Tasks::m_run = true, fv::Tasks::m_running = false;
 
 
 
-std::string fv::base64_enc (std::string data) {
+std::string fv::base64_encode (std::string data) {
 	static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 	std::string ret;
 	int i = 0, j = 0;
@@ -335,6 +335,46 @@ Task<std::tuple<fv::Response, std::string>> fv::Response::GetResponse (std::func
 
 
 
+Task<std::shared_ptr<fv::IConn>> fv::Connect (std::string _url) {
+	size_t _p = _url.find ("://");
+	if (_p == std::string::npos)
+		throw Exception ("URL格式错误：{}", _url);
+	std::string _schema = _url.substr (0, _p);
+	_p += 3;
+	//
+	std::string _host = "", _port = "";
+	size_t _q = _url.find (':', _p);
+	if (_q != std::string::npos) {
+		_host = _url.substr (_p, _q);
+		_port = _url.substr (_q + 1);
+	} else {
+		_host = _url.substr (_p);
+		_port = _schema == "ws" ? "80" : ("wss" ? "443" : "");
+		if (_port == "")
+			throw Exception ("URL格式错误：{}", _url);
+	}
+	//
+	if (_schema == "tcp") {
+		auto _conn = std::shared_ptr<IConn> (new TcpConnection { Tasks::GetContext () });
+		co_await _conn->Connect (_host, _port, false);
+		co_return _conn;
+	} else if (_schema == "udp") {
+		throw Exception ("暂不支持的协议：{}", _schema);
+	} else if (_schema == "ssl") {
+		throw Exception ("暂不支持的协议：{}", _schema);
+	} else if (_schema == "quic") {
+		throw Exception ("暂不支持的协议：{}", _schema);
+	} else if (_schema == "ws") {
+		throw Exception ("暂不支持的协议：{}", _schema);
+	} else if (_schema == "wss") {
+		throw Exception ("暂不支持的协议：{}", _schema);
+	} else {
+		throw Exception ("未知协议：{}", _schema);
+	}
+}
+
+
+
 Task<void> fv::TcpConnection::Connect (std::string _host, std::string _port, bool _nodelay) {
 	Close ();
 	std::regex _r { "(\\d+\\.){3}\\d+" };
@@ -445,7 +485,7 @@ fv::server::server (std::string _ip): m_ip (_ip) {}
 fv::no_delay::no_delay (bool _nd): m_nd (_nd) {}
 fv::header::header (std::string _key, std::string _value): m_key (_key), m_value (_value) {}
 fv::authorization::authorization (std::string _auth): m_auth (_auth) {}
-fv::authorization::authorization (std::string _uid, std::string _pwd): m_auth (std::format ("Basic {}", base64_enc (std::format ("{}:{}", _uid, _pwd)))) {}
+fv::authorization::authorization (std::string _uid, std::string _pwd): m_auth (std::format ("Basic {}", base64_encode (std::format ("{}:{}", _uid, _pwd)))) {}
 fv::connection::connection (std::string _co): m_co (_co) {}
 fv::content_type::content_type (std::string _ct): m_ct (_ct) {}
 fv::referer::referer (std::string _r): m_r (_r) {}

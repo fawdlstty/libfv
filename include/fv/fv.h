@@ -122,10 +122,6 @@ private:
 
 
 
-std::string base64_enc (std::string data);
-
-
-
 struct Exception: public std::exception {
 	Exception (std::string _err): m_err (_err) {}
 	template<typename ...Args>
@@ -199,9 +195,9 @@ struct IConn {
 	virtual Task<size_t> Send (char *_data, size_t _size) = 0;
 	virtual Task<size_t> Recv (char *_data, size_t _size) = 0;
 	virtual void Cancel () = 0;
-
-	//static Task<std::shared_ptr<IConn>> Create (std::string _url);
 };
+
+Task<std::shared_ptr<IConn>> Connect (std::string _url);
 
 
 
@@ -342,46 +338,6 @@ inline Task<Response> Delete (std::string _url, _Ops ..._ops) {
 	OptionApplys (_r, _ops...);
 	co_return co_await DoMethod (_r, Method::Delete);
 }
-
-
-
-//inline Task<std::shared_ptr<IConn>> IConn::Create (std::string _url) {
-//	size_t _p = _url.find ("://");
-//	if (_p == std::string::npos)
-//		throw Exception ("URL格式错误：{}", _url);
-//	std::string _schema = _url.substr (0, _p);
-//	_p += 3;
-//	//
-//	std::string _host = "", _port = "";
-//	size_t _q = _url.find (':', _p);
-//	if (_q != std::string::npos) {
-//		_host = _url.substr (_p, _q);
-//		_port = _url.substr (_q + 1);
-//	} else {
-//		_host = _url.substr (_p);
-//		_port = _schema == "ws" ? "80" : ("wss" ? "443" : "");
-//		if (_port == "")
-//			throw Exception ("URL格式错误：{}", _url);
-//	}
-//	//
-//	if (_schema == "tcp") {
-//		auto _conn = std::shared_ptr<IConn> (new TcpConnection { Tasks::GetContext () });
-//		co_await _conn->Connect (_host, _port, false);
-//		co_return _conn;
-//	} else if (_schema == "udp") {
-//		throw Exception ("暂不支持的协议：{}", _schema);
-//	} else if (_schema == "ssl") {
-//		throw Exception ("暂不支持的协议：{}", _schema);
-//	} else if (_schema == "quic") {
-//		throw Exception ("暂不支持的协议：{}", _schema);
-//	} else if (_schema == "ws") {
-//		throw Exception ("暂不支持的协议：{}", _schema);
-//	} else if (_schema == "wss") {
-//		throw Exception ("暂不支持的协议：{}", _schema);
-//	} else {
-//		throw Exception ("未知协议：{}", _schema);
-//	}
-//}
 }
 
 

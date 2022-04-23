@@ -4,56 +4,40 @@
 
 ## 配置环境
 
-步骤0：配置 `vcpkg` 环境
+1. 配置 `vcpkg` 环境
+	```
+	vcpkg install boost-asio:x86-windows-static
+	vcpkg install nlohmann-json:x86-windows-static
+	vcpkg install gzip-hpp:x86-windows-static
+	```
+2. 项目头文件搜索路径加入 `仓库根目录/include`
+3. 创建一个空cpp文件并引入libfv实现文件。这个文件最好不要加入其他代码
+	```cpp
+	#include <fv/fv-impl.hpp>
+	```
+4. 在需要使用api的源码文件里引入库头文件
+	```cpp
+	#include <fv/fv.hpp>
+	```
+5. 主函数进入及退出时调用初始化、释放函数
+	```cpp
+	// 初始化
+	fv::Tasks::Start (true);
 
-```
-vcpkg install boost-asio:x86-windows-static
-vcpkg install nlohmann-json:x86-windows-static
-```
+	// 释放
+	fv::Tasks::Stop ();
+	```
+6. 创建异步函数时，通过 `fv::Tasks::RunAsync` 加入异步执行队列
+	```cpp
+	// 异步函数
+	Task<void> async_func () {
+		fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_kv ("a", "aaa"));
+		std::cout << _r.Content;
+	}
 
-步骤1：克隆项目并初始化子模块
-
-```
-git clone https://github.com/fawdlstty/libfv
-git.exe submodule update --init --recursive
-```
-
-步骤2：项目头文件搜索路径加入 `仓库根目录/include`、`仓库根目录/gzip-hpp/include`
-
-步骤3：创建一个空cpp文件并引入libfv实现文件。这个文件最好不要加入其他代码
-
-```cpp
-#include <fv/fv-impl.hpp>
-```
-
-步骤4：在需要使用api的源码文件里引入库头文件
-
-```cpp
-#include <fv/fv.hpp>
-```
-
-步骤5：主函数进入及退出时调用初始化、释放函数
-
-```cpp
-// 初始化
-fv::Tasks::Start (true);
-
-// 释放
-fv::Tasks::Stop ();
-```
-
-步骤6：创建异步函数时，通过 `fv::Tasks::RunAsync` 加入异步执行队列
-
-```cpp
-// 异步函数
-Task<void> async_func () {
-	fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_kv ("a", "aaa"));
-	std::cout << _r.Content;
-}
-
-// 执行异步函数
-fv::Tasks::RunAsync (async_func);
-```
+	// 执行异步函数
+	fv::Tasks::RunAsync (async_func);
+	```
 
 现在我们已经创建好了异步函数，可以自由在里面编写异步代码啦！
 

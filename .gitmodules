@@ -1,3 +1,0 @@
-[submodule "gzip-hpp"]
-	path = gzip-hpp
-	url = git@github.com:mapbox/gzip-hpp.git

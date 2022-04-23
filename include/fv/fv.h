@@ -12,24 +12,18 @@
 #include <variant>
 #include <vector>
 
-//#include <atomic>
-//#include <functional>
-//#include <thread>
-//#include <type_traits>
-//
 #define BOOST_ASIO_HAS_CO_AWAIT
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
-#define Task boost::asio::awaitable
-using asio_tcp = boost::asio::ip::tcp;
-using asio_udp = boost::asio::ip::udp;
-namespace asio_ssl = boost::asio::ssl;
-//using asio_address = boost::asio::ip::address;
-using boost::asio::use_awaitable;
 
 
 
 namespace fv {
+#define Task boost::asio::awaitable
+using asio_tcp = boost::asio::ip::tcp;
+using asio_udp = boost::asio::ip::udp;
+namespace asio_ssl = boost::asio::ssl;
+using TimeSpan = std::chrono::system_clock::duration;
 enum class Method { Head, Option, Get, Post, Put, Delete };
 
 struct CaseInsensitiveHash { size_t operator() (const std::string &str) const noexcept; };
@@ -44,7 +38,7 @@ struct AsyncSemaphore {
 	bool TryAcquire () { return m_sp.try_acquire (); }
 	void Acquire () { m_sp.acquire (); }
 	Task<void> AcquireAsync ();
-	Task<bool> AcquireForAsync (std::chrono::system_clock::duration _span);
+	Task<bool> AcquireForAsync (TimeSpan _span);
 	Task<bool> AcquireUntilAsync (std::chrono::system_clock::time_point _until);
 
 private:
@@ -53,10 +47,10 @@ private:
 
 struct CancelToken {
 	CancelToken (std::chrono::system_clock::time_point _cancel_time) { m_cancel_time = _cancel_time; }
-	CancelToken (std::chrono::system_clock::duration _expire) { m_cancel_time = std::chrono::system_clock::now () + _expire; }
+	CancelToken (TimeSpan _expire) { m_cancel_time = std::chrono::system_clock::now () + _expire; }
 	void Cancel () { m_cancel_time = std::chrono::system_clock::now (); }
 	bool IsCancel () { return std::chrono::system_clock::now () <= m_cancel_time; }
-	std::chrono::system_clock::duration GetRemaining () { return m_cancel_time - std::chrono::system_clock::now (); }
+	TimeSpan GetRemaining () { return m_cancel_time - std::chrono::system_clock::now (); }
 
 private:
 	std::chrono::system_clock::time_point m_cancel_time;
@@ -79,7 +73,7 @@ struct Tasks {
 	static void RunAsync (F &&f, Args... args) { return RunAsync (std::bind (f, args...)); }
 
 	// 异步延时
-	static Task<void> Delay (std::chrono::system_clock::duration _dt);
+	static Task<void> Delay (TimeSpan _dt);
 
 	// 启动异步任务池
 	static void Start (bool _new_thread);
@@ -98,13 +92,13 @@ struct AsyncTimer {
 	AsyncTimer () { m_sema.Acquire (); }
 	~AsyncTimer () { Cancel (); }
 
-	Task<bool> WaitTimeoutAsync (std::chrono::system_clock::duration _elapse) {
+	Task<bool> WaitTimeoutAsync (TimeSpan _elapse) {
 		co_return !co_await m_sema.AcquireForAsync (_elapse);
 	}
 
 	template<typename F>
-	void WaitCallback (std::chrono::system_clock::duration _elapse, F _cb) {
-		Tasks::RunAsync ([this] (std::chrono::system_clock::duration _elapse, F _cb) -> Task<void> {
+	void WaitCallback (TimeSpan _elapse, F _cb) {
+		Tasks::RunAsync ([this] (TimeSpan _elapse, F _cb) -> Task<void> {
 			if (co_await WaitTimeoutAsync (_elapse)) {
 				using _TRet = typename std::decay<decltype (_cb ())>;
 				if constexpr (std::is_same<_TRet, void>::value) {
@@ -129,7 +123,6 @@ private:
 
 
 std::string base64_enc (std::string data);
-std::string random_str (size_t _len);
 
 
 
@@ -165,7 +158,7 @@ struct body_raw {
 
 
 struct Request {
-	std::chrono::system_clock::duration Timeout = std::chrono::seconds (0);
+	TimeSpan Timeout = std::chrono::seconds (0);
 	std::string Server = "";
 	bool NoDelay = false;
 	//
@@ -217,7 +210,7 @@ struct TcpConnection: IConn {
 	asio_tcp::socket Socket;
 
 	TcpConnection (boost::asio::io_context &_ctx): ResolverImpl (_ctx), Socket (_ctx) {}
-	virtual ~TcpConnection () { Cancel (); }
+	virtual ~TcpConnection () { Cancel (); Close (); }
 	Task<void> Connect (std::string _host, std::string _port, bool _nodelay) override;
 	void Close () override;
 	Task<size_t> Send (char *_data, size_t _size) override;
@@ -233,7 +226,7 @@ struct SslConnection: IConn {
 	asio_ssl::stream<asio_tcp::socket> SslSocket;
 
 	SslConnection (boost::asio::io_context &_ctx): ResolverImpl (_ctx), SslSocket (_ctx, SslCtx) {}
-	virtual ~SslConnection () { Cancel (); }
+	virtual ~SslConnection () { Cancel (); Close (); }
 	Task<void> Connect (std::string _host, std::string _port, bool _nodelay) override;
 	void Close () override;
 	Task<size_t> Send (char *_data, size_t _size) override;
@@ -243,19 +236,15 @@ struct SslConnection: IConn {
 
 
 
-struct timeout { timeout (std::chrono::system_clock::duration _exp): m_exp (_exp) {} std::chrono::system_clock::duration m_exp; };
-struct server { server (std::string _ip): m_ip (_ip) {} std::string m_ip; };
-struct no_delay { no_delay (bool _nd): m_nd (_nd) {} bool m_nd; };
-struct header { header (std::string _key, std::string _value): m_key (_key), m_value (_value) {} std::string m_key, m_value; };
-struct authorization {
-	authorization (std::string _auth): m_auth (_auth) {}
-	authorization (std::string _uid, std::string _pwd): m_auth (std::format ("Basic {}", base64_enc (std::format ("{}:{}", _uid, _pwd)))) {}
-	std::string m_auth;
-};
-struct connection { connection (std::string _co): m_co (_co) {} std::string m_co; };
-struct content_type { content_type (std::string _ct): m_ct (_ct) {} std::string m_ct; };
-struct referer { referer (std::string _r): m_r (_r) {} std::string m_r; };
-struct user_agent { user_agent (std::string _ua): m_ua (_ua) {} std::string m_ua; };
+struct timeout { timeout (TimeSpan _exp); TimeSpan m_exp; };
+struct server { server (std::string _ip); std::string m_ip; };
+struct no_delay { no_delay (bool _nd); bool m_nd; };
+struct header { header (std::string _key, std::string _value); std::string m_key, m_value; };
+struct authorization { authorization (std::string _auth); authorization (std::string _uid, std::string _pwd); std::string m_auth; };
+struct connection { connection (std::string _co); std::string m_co; };
+struct content_type { content_type (std::string _ct); std::string m_ct; };
+struct referer { referer (std::string _r); std::string m_r; };
+struct user_agent { user_agent (std::string _ua); std::string m_ua; };
 template<typename T>
 concept TOption = std::is_same<T, timeout>::value || std::is_same<T, server>::value || std::is_same<T, no_delay>::value ||
 	std::is_same<T, header>::value || std::is_same<T, authorization>::value || std::is_same<T, connection>::value ||
@@ -287,11 +276,7 @@ inline void OptionApplys (Request &_r, _Op1 _op1, _Ops ..._ops) { OptionApply (_
 
 
 
-std::tuple<std::string, std::string, std::string, std::string> _parse_url (std::string _url);
 Task<Response> DoMethod (Request _r, Method _method);
-
-
-
 inline Task<Response> Head (std::string _url) {
 	co_return co_await DoMethod (Request { .Url = _url }, Method::Head);
 }

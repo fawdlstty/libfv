@@ -19,6 +19,7 @@
 #pragma warning (pop)
 
 using boost::asio::socket_base;
+using boost::asio::use_awaitable;
 
 
 
@@ -68,7 +69,7 @@ Task<void> fv::AsyncSemaphore::AcquireAsync () {
 		co_await timer.async_wait (use_awaitable);
 	}
 }
-Task<bool> fv::AsyncSemaphore::AcquireForAsync (std::chrono::system_clock::duration _span) {
+Task<bool> fv::AsyncSemaphore::AcquireForAsync (TimeSpan _span) {
 	co_return co_await AcquireUntilAsync (std::chrono::system_clock::now () + _span);
 }
 Task<bool> fv::AsyncSemaphore::AcquireUntilAsync (std::chrono::system_clock::time_point _until) {
@@ -84,7 +85,7 @@ Task<bool> fv::AsyncSemaphore::AcquireUntilAsync (std::chrono::system_clock::tim
 
 
 
-Task<void> fv::Tasks::Delay (std::chrono::system_clock::duration _dt) {
+Task<void> fv::Tasks::Delay (TimeSpan _dt) {
 	boost::asio::steady_timer timer (co_await boost::asio::this_coro::executor);
 	timer.expires_after (_dt);
 	co_await timer.async_wait (use_awaitable);
@@ -156,7 +157,7 @@ std::string fv::base64_enc (std::string data) {
 
 
 
-std::string fv::random_str (size_t _len) {
+static std::string random_str (size_t _len) {
 	static const std::string s_chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 	std::string _str = "";
 	if (_len == 0 || _len == std::string::npos)
@@ -317,14 +318,16 @@ Task<std::tuple<fv::Response, std::string>> fv::Response::GetResponse (std::func
 		_r.Headers [_key] = _value;
 	}
 	if (_r.Headers.contains ("Content-Length")) {
-		size_t _sz = (size_t) std::stoi (_r.Headers ["Content-Length"]);
-		_r.Content = co_await _read_count (_sz);
-	}
-	if (_r.Headers.contains ("Content-Encoding")) {
-		_line = _r.Headers ["Content-Encoding"];
-		std::transform (_line.begin (), _line.end (), _line.begin (), ::tolower);
-		if (_line == "gzip") {
-			_r.Content = gzip::decompress (_r.Content.data (), _r.Content.size ());
+		int _sz = std::stoi (_r.Headers ["Content-Length"]);
+		if (_sz > 0) {
+			_r.Content = co_await _read_count (_sz);
+			if (_r.Headers.contains ("Content-Encoding")) {
+				_line = _r.Headers ["Content-Encoding"];
+				std::transform (_line.begin (), _line.end (), _line.begin (), ::tolower);
+				if (_line == "gzip") {
+					_r.Content = gzip::decompress (_r.Content.data (), _r.Content.size ());
+				}
+			}
 		}
 	}
 	co_return std::make_tuple (_r, _data);
@@ -406,7 +409,12 @@ Task<void> fv::SslConnection::Connect (std::string _host, std::string _port, boo
 	co_await SslSocket.async_handshake (asio_ssl::stream_base::client, use_awaitable);
 }
 
-void fv::SslConnection::Close () {}
+void fv::SslConnection::Close () {
+	if (SslSocket.next_layer ().is_open ()) {
+		SslSocket.next_layer ().shutdown (socket_base::shutdown_both);
+		SslSocket.next_layer ().close ();
+	}
+}
 
 Task<size_t> fv::SslConnection::Send (char *_data, size_t _size) {
 	if (!SslSocket.next_layer ().is_open ())
@@ -432,7 +440,20 @@ void fv::SslConnection::Cancel () {
 
 
 
-std::tuple<std::string, std::string, std::string, std::string> fv::_parse_url (std::string _url) {
+fv::timeout::timeout (TimeSpan _exp): m_exp (_exp) {}
+fv::server::server (std::string _ip): m_ip (_ip) {}
+fv::no_delay::no_delay (bool _nd): m_nd (_nd) {}
+fv::header::header (std::string _key, std::string _value): m_key (_key), m_value (_value) {}
+fv::authorization::authorization (std::string _auth): m_auth (_auth) {}
+fv::authorization::authorization (std::string _uid, std::string _pwd): m_auth (std::format ("Basic {}", base64_enc (std::format ("{}:{}", _uid, _pwd)))) {}
+fv::connection::connection (std::string _co): m_co (_co) {}
+fv::content_type::content_type (std::string _ct): m_ct (_ct) {}
+fv::referer::referer (std::string _r): m_r (_r) {}
+fv::user_agent::user_agent (std::string _ua): m_ua (_ua) {}
+
+
+
+static std::tuple<std::string, std::string, std::string, std::string> _parse_url (std::string _url) {
 	std::string _schema = "http";
 	size_t _p = _url.find ("://");
 	if (_p != std::string::npos) {

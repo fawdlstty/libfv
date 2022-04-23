@@ -116,12 +116,12 @@ void fv::Tasks::Stop () {
 		std::this_thread::sleep_for (std::chrono::milliseconds (1));
 }
 
-boost::asio::io_context fv::Tasks::m_ctx { 1 };
+fv::io_context fv::Tasks::m_ctx { 1 };
 std::atomic_bool fv::Tasks::m_run = true, fv::Tasks::m_running = false;
 
 
 
-std::string fv::base64_encode (std::string data) {
+static std::string base64_encode (std::string data) {
 	static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 	std::string ret;
 	int i = 0, j = 0;
@@ -335,7 +335,7 @@ Task<std::tuple<fv::Response, std::string>> fv::Response::GetResponse (std::func
 
 
 
-Task<std::shared_ptr<fv::IConn>> fv::Connect (std::string _url) {
+Task<std::shared_ptr<fv::IConn>> fv::Connect (std::string _url, bool _nodelay) {
 	size_t _p = _url.find ("://");
 	if (_p == std::string::npos)
 		throw Exception ("URL格式错误：{}", _url);
@@ -364,8 +364,26 @@ Task<std::shared_ptr<fv::IConn>> fv::Connect (std::string _url) {
 		throw Exception ("暂不支持的协议：{}", _schema);
 	} else if (_schema == "quic") {
 		throw Exception ("暂不支持的协议：{}", _schema);
-	} else if (_schema == "ws") {
+	} else if (_schema == "ws" || _schema == "wss") {
 		throw Exception ("暂不支持的协议：{}", _schema);
+		// TODO
+		//// connect
+		//auto _conn = std::shared_ptr<IConn> (_schema == "ws" ? (IConn*) new TcpConnection { Tasks::GetContext () } : new SslConnection { Tasks::GetContext () });
+		//co_await _conn->Connect (_host, _port, _nodelay);
+
+		//// generate data
+		//Request _r {};
+		//std::string _data = _r.Serilize (Method::Get, _host, _path);
+
+		//// send
+		//size_t _count = co_await _conn->Send (_data.data (), _data.size ());
+		//if (_count < _data.size ())
+		//	throw Exception ("发送信息不完全，应发 {} 字节，实发 {} 字节。", _data.size (), _count);
+
+		//// recv
+		//auto [_ret, _next_data] = co_await Response::GetResponse ([_conn] (char *_data, size_t _size) ->Task<size_t> {
+		//	co_return co_await _conn->Recv (_data, _size);
+		//});
 	} else if (_schema == "wss") {
 		throw Exception ("暂不支持的协议：{}", _schema);
 	} else {
@@ -380,7 +398,7 @@ Task<void> fv::TcpConnection::Connect (std::string _host, std::string _port, boo
 	std::regex _r { "(\\d+\\.){3}\\d+" };
 	if (std::regex_match (_host, _r)) {
 		uint16_t _sport = (uint16_t) std::stoi (_port);
-		co_await Socket.async_connect (asio_tcp::endpoint { boost::asio::ip::address::from_string (_host), _sport }, use_awaitable);
+		co_await Socket.async_connect (tcp::endpoint { boost::asio::ip::address::from_string (_host), _sport }, use_awaitable);
 	} else {
 		std::string _sport = std::format ("{}", _port);
 		auto _it = co_await ResolverImpl.async_resolve (_host, _sport, use_awaitable);
@@ -389,7 +407,7 @@ Task<void> fv::TcpConnection::Connect (std::string _host, std::string _port, boo
 	if (!Socket.is_open ())
 		throw Exception ("无法连接至目标服务器 {}", _host);
 	if (_nodelay)
-		Socket.set_option (asio_tcp::no_delay { _nodelay });
+		Socket.set_option (tcp::no_delay { _nodelay });
 }
 
 void fv::TcpConnection::Close () {
@@ -428,14 +446,14 @@ void fv::TcpConnection::Cancel () {
 
 Task<void> fv::SslConnection::Connect (std::string _host, std::string _port, bool _nodelay) {
 	Close ();
-	SslSocket.set_verify_mode (asio_ssl::verify_peer);
-	SslSocket.set_verify_callback ([] (bool preverified, asio_ssl::verify_context &ctx) {
+	SslSocket.set_verify_mode (ssl::verify_peer);
+	SslSocket.set_verify_callback ([] (bool preverified, ssl::verify_context &ctx) {
 		return true;
 	});
 	std::regex _r { "(\\d+\\.){3}\\d+" };
 	if (std::regex_match (_host, _r)) {
 		uint16_t _sport = (uint16_t) std::stoi (_port);
-		co_await SslSocket.next_layer ().async_connect (asio_tcp::endpoint { boost::asio::ip::address::from_string (_host), _sport }, use_awaitable);
+		co_await SslSocket.next_layer ().async_connect (tcp::endpoint { boost::asio::ip::address::from_string (_host), _sport }, use_awaitable);
 	} else {
 		std::string _sport = std::format ("{}", _port);
 		auto _it = co_await ResolverImpl.async_resolve (_host, _sport, use_awaitable);
@@ -444,9 +462,8 @@ Task<void> fv::SslConnection::Connect (std::string _host, std::string _port, boo
 	if (!SslSocket.next_layer ().is_open ())
 		throw Exception ("无法连接至目标服务器 {}", _host);
 	if (_nodelay)
-		SslSocket.next_layer ().set_option (asio_tcp::no_delay { _nodelay });
-	//// TODO 握手
-	co_await SslSocket.async_handshake (asio_ssl::stream_base::client, use_awaitable);
+		SslSocket.next_layer ().set_option (tcp::no_delay { _nodelay });
+	co_await SslSocket.async_handshake (ssl::stream_base::client, use_awaitable);
 }
 
 void fv::SslConnection::Close () {

@@ -20,9 +20,10 @@
 
 namespace fv {
 #define Task boost::asio::awaitable
-using asio_tcp = boost::asio::ip::tcp;
-using asio_udp = boost::asio::ip::udp;
-namespace asio_ssl = boost::asio::ssl;
+using tcp = boost::asio::ip::tcp;
+using udp = boost::asio::ip::udp;
+namespace ssl = boost::asio::ssl;
+using io_context = boost::asio::io_context;
 using TimeSpan = std::chrono::system_clock::duration;
 enum class Method { Head, Option, Get, Post, Put, Delete };
 
@@ -81,10 +82,10 @@ struct Tasks {
 	// Õ£÷π“Ï≤Ω»ŒŒÒ≥ÿ
 	static void Stop ();
 
-	static boost::asio::io_context &GetContext () { return m_ctx; }
+	static io_context &GetContext () { return m_ctx; }
 
 private:
-	static boost::asio::io_context m_ctx;
+	static io_context m_ctx;
 	static std::atomic_bool m_run, m_running;
 };
 
@@ -197,15 +198,15 @@ struct IConn {
 	virtual void Cancel () = 0;
 };
 
-Task<std::shared_ptr<IConn>> Connect (std::string _url);
+Task<std::shared_ptr<IConn>> Connect (std::string _url, bool _nodelay = false);
 
 
 
 struct TcpConnection: IConn {
-	asio_tcp::resolver ResolverImpl;
-	asio_tcp::socket Socket;
+	tcp::resolver ResolverImpl;
+	tcp::socket Socket;
 
-	TcpConnection (boost::asio::io_context &_ctx): ResolverImpl (_ctx), Socket (_ctx) {}
+	TcpConnection (io_context &_ctx): ResolverImpl (_ctx), Socket (_ctx) {}
 	virtual ~TcpConnection () { Cancel (); Close (); }
 	Task<void> Connect (std::string _host, std::string _port, bool _nodelay) override;
 	void Close () override;
@@ -217,11 +218,11 @@ struct TcpConnection: IConn {
 
 
 struct SslConnection: IConn {
-	asio_tcp::resolver ResolverImpl;
-	asio_ssl::context SslCtx { asio_ssl::context::tls };
-	asio_ssl::stream<asio_tcp::socket> SslSocket;
+	tcp::resolver ResolverImpl;
+	ssl::context SslCtx { ssl::context::tls };
+	ssl::stream<tcp::socket> SslSocket;
 
-	SslConnection (boost::asio::io_context &_ctx): ResolverImpl (_ctx), SslSocket (_ctx, SslCtx) {}
+	SslConnection (io_context &_ctx): ResolverImpl (_ctx), SslSocket (_ctx, SslCtx) {}
 	virtual ~SslConnection () { Cancel (); Close (); }
 	Task<void> Connect (std::string _host, std::string _port, bool _nodelay) override;
 	void Close () override;

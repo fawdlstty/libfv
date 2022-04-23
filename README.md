@@ -98,7 +98,7 @@ fv::Response _r = co_await fv::Get ("https://t.cn", fv::no_delay (true));
 fv::Response _r = co_await fv::Get ("https://t.cn", fv::header ("X-WWW-Router", "123456789"));
 ```
 
-### 自定义鉴权
+### 设置http头 `Authorization` 值
 
 ```cpp
 // jwt bearer 鉴权
@@ -107,25 +107,25 @@ fv::Response _r = co_await fv::Get ("https://t.cn", fv::authorization ("Bearer X
 fv::Response _r1 = co_await fv::Get ("https://t.cn", fv::authorization ("admin", "123456"));
 ```
 
-### 设置http头 `Connection` 属性
+### 设置http头 `Connection` 值
 
 ```cpp
 fv::Response _r = co_await fv::Get ("https://t.cn", fv::connection ("keep-alive"));
 ```
 
-### 设置http头 `Content-Type` 属性
+### 设置http头 `Content-Type` 值
 
 ```cpp
 fv::Response _r = co_await fv::Get ("https://t.cn", fv::content_type ("application/octet-stream"));
 ```
 
-### 设置http头 `Referer` 属性
+### 设置http头 `Referer` 值
 
 ```cpp
 fv::Response _r = co_await fv::Get ("https://t.cn", fv::referer ("https://t.cn"));
 ```
 
-### 设置http头 `User-Agent` 属性
+### 设置http头 `User-Agent` 值
 
 ```cpp
 fv::Response _r = co_await fv::Get ("https://t.cn", fv::user_agent ("Mozilla/4.0 Chrome 2333"));

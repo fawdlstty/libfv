@@ -26,7 +26,7 @@ Task<void> async_func () {
 	//	//fv::http_header ("MyHeader", "MyValue"),
 	//	//fv::auth ("admin", "123456")
 	//);
-	fv::Response _r = co_await fv::Post ("https://www.fawdlstty.com", fv::body_kv ("a", "aaa"), fv::body_kv ("b", "333"));
+	fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com");
 	std::cout << _r.Content;
 }
 

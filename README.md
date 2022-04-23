@@ -68,7 +68,11 @@ fv::Response _r = co_await fv::Get ("https://t.cn");
 ### 发起 HttpPost 请求
 
 ```cpp
+// 提交 application/json 格式
 fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_kv ("a", "aaa"));
+
+// 提交 application/x-www-form-urlencoded 格式
+fv::Response _r2 = co_await fv::Post ("https://t.cn", fv::body_kv ("a", "aaa"), fv::content_type ("application/x-www-form-urlencoded"));
 ```
 
 ### 提交文件
@@ -81,6 +85,7 @@ fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_file ("a", "filena
 
 ```cpp
 fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_raw ("application/octet-stream", "aaa"));
+// 备注：指定了原始内容后，无法再通过 fv::body_kv、fv::body_file指定格式化内容
 ```
 
 共支持6种HTTP请求，还可使用 `fv::Head`、`fv::Option`、`fv::Put`、`fv::Delete` 方法。其中 `fv::body_raw` 参数只能用于 `fv::Post` 和 `fv::Put`。

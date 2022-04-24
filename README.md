@@ -138,3 +138,5 @@ fv::Response _r = co_await fv::Get ("https://t.cn", fv::user_agent ("Mozilla/4.0
 - [ ] UDP
 - [ ] Websocket
 - [ ] SSL
+
+<!--dns缓存、多线程任务池-->

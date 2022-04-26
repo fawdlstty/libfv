@@ -23,6 +23,45 @@ using boost::asio::use_awaitable;
 
 
 
+static std::tuple<std::string, std::string, std::string, std::string> _parse_url (std::string _url) {
+	size_t _p = _url.find ('#');
+	if (_p != std::string::npos)
+		_url = _url.substr (0, _p);
+	std::string _schema = "http";
+	_p = _url.find ("://");
+	if (_p != std::string::npos) {
+		_schema = _url.substr (0, _p);
+		std::transform (_schema.begin (), _schema.end (), _schema.begin (), ::tolower);
+		_url = _url.substr (_p + 3);
+	}
+	//
+	_p = _url.find ('/');
+	std::string _path = "/";
+	if (_p != std::string::npos) {
+		_path = _url.substr (_p);
+		_url = _url.substr (0, _p);
+	}
+	//
+	_p = _url.find (':');
+	std::string _host = "", _port = "";
+	if (_p != std::string::npos) {
+		_host = _url.substr (0, _p);
+		_port = _url.substr (_p + 1);
+	} else {
+		_host = _url;
+		if (_schema == "http" || _schema == "ws") {
+			_port = "80";
+		} else if (_schema == "https" || _schema == "wss") {
+			_port = "443";
+		} else {
+			throw fv::Exception ("未知端口");
+		}
+	}
+	return { _schema, _host, _port, _path };
+}
+
+
+
 bool fv::CaseInsensitiveEqual::operator() (const std::string &str1, const std::string &str2) const noexcept {
 	return str1.size () == str2.size () &&
 		std::equal (str1.begin (), str1.end (), str2.begin (), [] (char a, char b) {
@@ -335,57 +374,69 @@ Task<std::tuple<fv::Response, std::string>> fv::Response::GetResponse (std::func
 
 
 
+std::function<Task<size_t> (char *, size_t)> fv::Cacher::GetReaderCb () {
+	return [this] (char * _buf, size_t _size) -> Task<size_t> {
+		if (_buf == nullptr || _size == 0)
+			co_return 0;
+		// TODO 解包
+		//if (Tmp.size () > 0) {
+		//	size_t _min = Tmp.size () < _size ? Tmp.size () : _size;
+		//	::memcpy_s (_buf, _size, Tmp.data (), _min);
+		//	Tmp.erase (0, _min);
+		//	co_return _min;
+		//}
+		//char buf [1024];
+		//ReaderCb ();
+		co_return 0;
+	};
+}
+
+
+
 Task<std::shared_ptr<fv::IConn>> fv::Connect (std::string _url, bool _nodelay) {
-	size_t _p = _url.find ("://");
-	if (_p == std::string::npos)
-		throw Exception ("URL格式错误：{}", _url);
-	std::string _schema = _url.substr (0, _p);
-	_p += 3;
-	//
-	std::string _host = "", _port = "";
-	size_t _q = _url.find (':', _p);
-	if (_q != std::string::npos) {
-		_host = _url.substr (_p, _q);
-		_port = _url.substr (_q + 1);
-	} else {
-		_host = _url.substr (_p);
-		_port = _schema == "ws" ? "80" : ("wss" ? "443" : "");
-		if (_port == "")
-			throw Exception ("URL格式错误：{}", _url);
-	}
+	auto [_schema, _host, _port, _path] = _parse_url (_url);
 	//
 	if (_schema == "tcp") {
-		auto _conn = std::shared_ptr<IConn> (new TcpConnection { Tasks::GetContext () });
+		if (_path != "/")
+			throw Exception ("url格式错误");
+		auto _conn = std::shared_ptr<IConn> (new TcpConn { Tasks::GetContext () });
 		co_await _conn->Connect (_host, _port, false);
 		co_return _conn;
-	} else if (_schema == "udp") {
-		throw Exception ("暂不支持的协议：{}", _schema);
-	} else if (_schema == "ssl") {
-		throw Exception ("暂不支持的协议：{}", _schema);
-	} else if (_schema == "quic") {
-		throw Exception ("暂不支持的协议：{}", _schema);
+	//} else if (_schema == "udp") {
+	//	if (_path != "/")
+	//		throw Exception ("url格式错误");
+	//	throw Exception ("暂不支持的协议：{}", _schema);
+	//} else if (_schema == "ssl") {
+	//	if (_path != "/")
+	//		throw Exception ("url格式错误");
+	//	throw Exception ("暂不支持的协议：{}", _schema);
+	//} else if (_schema == "quic") {
+	//	if (_path != "/")
+	//		throw Exception ("url格式错误");
+	//	throw Exception ("暂不支持的协议：{}", _schema);
 	} else if (_schema == "ws" || _schema == "wss") {
 		throw Exception ("暂不支持的协议：{}", _schema);
-		// TODO
-		//// connect
-		//auto _conn = std::shared_ptr<IConn> (_schema == "ws" ? (IConn*) new TcpConnection { Tasks::GetContext () } : new SslConnection { Tasks::GetContext () });
-		//co_await _conn->Connect (_host, _port, _nodelay);
+		// connect
+		auto _conn = std::shared_ptr<IConn> (_schema == "ws" ?
+			(IConn*) new TcpConn { Tasks::GetContext () } :
+			new SslConn { Tasks::GetContext () });
+		co_await _conn->Connect (_host, _port, _nodelay);
 
-		//// generate data
-		//Request _r {};
-		//std::string _data = _r.Serilize (Method::Get, _host, _path);
+		// generate data
+		Request _r { .Url = _url };
+		_OptionApplys (_r, no_delay (_nodelay), header ("Pragma", "no-cache"), connection ("Upgrade"), header ("Upgrade", "websocket"),
+			header ("Sec-WebSocket-Version", "13"), header ("Sec-WebSocket-Key", "libfvlibfv=="));
+		std::string _data = _r.Serilize (Method::Get, _host, _path);
 
-		//// send
-		//size_t _count = co_await _conn->Send (_data.data (), _data.size ());
-		//if (_count < _data.size ())
-		//	throw Exception ("发送信息不完全，应发 {} 字节，实发 {} 字节。", _data.size (), _count);
+		// send
+		size_t _count = co_await _conn->Send (_data.data (), _data.size ());
+		if (_count < _data.size ())
+			throw Exception ("发送信息不完全，应发 {} 字节，实发 {} 字节。", _data.size (), _count);
 
-		//// recv
-		//auto [_ret, _next_data] = co_await Response::GetResponse ([_conn] (char *_data, size_t _size) ->Task<size_t> {
-		//	co_return co_await _conn->Recv (_data, _size);
-		//});
-	} else if (_schema == "wss") {
-		throw Exception ("暂不支持的协议：{}", _schema);
+		// recv
+		auto [_ret, _next_data] = co_await Response::GetResponse ([_conn] (char *_data, size_t _size) ->Task<size_t> {
+			co_return co_await _conn->Recv (_data, _size);
+		});
 	} else {
 		throw Exception ("未知协议：{}", _schema);
 	}
@@ -393,7 +444,7 @@ Task<std::shared_ptr<fv::IConn>> fv::Connect (std::string _url, bool _nodelay) {
 
 
 
-Task<void> fv::TcpConnection::Connect (std::string _host, std::string _port, bool _nodelay) {
+Task<void> fv::TcpConn::Connect (std::string _host, std::string _port, bool _nodelay) {
 	Close ();
 	std::regex _r { "(\\d+\\.){3}\\d+" };
 	if (std::regex_match (_host, _r)) {
@@ -410,14 +461,14 @@ Task<void> fv::TcpConnection::Connect (std::string _host, std::string _port, boo
 		Socket.set_option (tcp::no_delay { _nodelay });
 }
 
-void fv::TcpConnection::Close () {
+void fv::TcpConn::Close () {
 	if (Socket.is_open ()) {
 		Socket.shutdown (socket_base::shutdown_both);
 		Socket.close ();
 	}
 }
 
-Task<size_t> fv::TcpConnection::Send (char *_data, size_t _size) {
+Task<size_t> fv::TcpConn::Send (char *_data, size_t _size) {
 	if (!Socket.is_open ())
 		co_return 0;
 	size_t _sended = 0;
@@ -430,21 +481,33 @@ Task<size_t> fv::TcpConnection::Send (char *_data, size_t _size) {
 	co_return _sended;
 }
 
-Task<size_t> fv::TcpConnection::Recv (char *_data, size_t _size) {
+Task<size_t> fv::TcpConn::Recv (char *_data, size_t _size) {
 	if (!Socket.is_open ())
 		co_return 0;
 	size_t _count = co_await Socket.async_read_some (boost::asio::buffer (_data, _size), use_awaitable);
 	co_return _count;
 }
 
-void fv::TcpConnection::Cancel () {
+void fv::TcpConn::Cancel () {
 	ResolverImpl.cancel ();
 	Socket.cancel ();
 }
 
 
 
-Task<void> fv::SslConnection::Connect (std::string _host, std::string _port, bool _nodelay) {
+Task<std::tuple<std::string, fv::WsPayloadType>> fv::WsConn::Recv (char *_data, size_t _size) {
+	// TODO
+	co_return std::make_tuple (std::string (""), WsPayloadType::Close);
+}
+
+Task<bool> fv::WsConn::_Send (char *_data, size_t _size, WsPayloadType _type) {
+	// TODO
+	co_return false;
+}
+
+
+
+Task<void> fv::SslConn::Connect (std::string _host, std::string _port, bool _nodelay) {
 	Close ();
 	SslSocket.set_verify_mode (ssl::verify_peer);
 	SslSocket.set_verify_callback ([] (bool preverified, ssl::verify_context &ctx) {
@@ -466,14 +529,14 @@ Task<void> fv::SslConnection::Connect (std::string _host, std::string _port, boo
 	co_await SslSocket.async_handshake (ssl::stream_base::client, use_awaitable);
 }
 
-void fv::SslConnection::Close () {
+void fv::SslConn::Close () {
 	if (SslSocket.next_layer ().is_open ()) {
 		SslSocket.next_layer ().shutdown (socket_base::shutdown_both);
 		SslSocket.next_layer ().close ();
 	}
 }
 
-Task<size_t> fv::SslConnection::Send (char *_data, size_t _size) {
+Task<size_t> fv::SslConn::Send (char *_data, size_t _size) {
 	if (!SslSocket.next_layer ().is_open ())
 		co_return 0;
 	size_t _sended = 0;
@@ -486,11 +549,11 @@ Task<size_t> fv::SslConnection::Send (char *_data, size_t _size) {
 	co_return _sended;
 }
 
-Task<size_t> fv::SslConnection::Recv (char *_data, size_t _size) {
+Task<size_t> fv::SslConn::Recv (char *_data, size_t _size) {
 	co_return co_await SslSocket.async_read_some (boost::asio::buffer (_data, _size), use_awaitable);
 }
 
-void fv::SslConnection::Cancel () {
+void fv::SslConn::Cancel () {
 	ResolverImpl.cancel ();
 	SslSocket.next_layer ().cancel ();
 }
@@ -510,43 +573,13 @@ fv::user_agent::user_agent (std::string _ua): m_ua (_ua) {}
 
 
 
-static std::tuple<std::string, std::string, std::string, std::string> _parse_url (std::string _url) {
-	std::string _schema = "http";
-	size_t _p = _url.find ("://");
-	if (_p != std::string::npos) {
-		_schema = _url.substr (0, _p);
-		std::transform (_schema.begin (), _schema.end (), _schema.begin (), ::tolower);
-		_url = _url.substr (_p + 3);
-	}
-	//
-	_p = _url.find ('/');
-	std::string _path = "/";
-	if (_p != std::string::npos) {
-		_path = _url.substr (_p);
-		_url = _url.substr (0, _p);
-	}
-	//
-	_p = _url.find (':');
-	std::string _host = "", _port = "";
-	if (_p != std::string::npos) {
-		_host = _url.substr (0, _p);
-		_port = _url.substr (_p + 1);
-	} else {
-		_host = _url;
-		_port = _schema == "http" ? "80" : "443";
-	}
-	return { _schema, _host, _port, _path };
-}
-
-
-
 Task<fv::Response> fv::DoMethod (Request _r, Method _method) {
 	auto [_schema, _host, _port, _path] = _parse_url (_r.Url);
 	std::shared_ptr<IConn> _conn;
 	if (_schema == "https") {
-		_conn = std::shared_ptr<IConn> (new SslConnection { Tasks::GetContext () });
+		_conn = std::shared_ptr<IConn> (new SslConn { Tasks::GetContext () });
 	} else {
-		_conn = std::shared_ptr<IConn> (new TcpConnection { Tasks::GetContext () });
+		_conn = std::shared_ptr<IConn> (new TcpConn { Tasks::GetContext () });
 	}
 	AsyncTimer _timer {};
 	if (std::chrono::duration_cast<std::chrono::nanoseconds> (_r.Timeout).count () > 0) {

@@ -173,7 +173,7 @@ struct Request {
 private:
 	bool _content_raw_contains_files ();
 
-	inline static CaseInsensitiveMap m_def_headers { { "Accept", "*/*" }, { "Accept-Encoding", "gzip" }, { "Connection", "keep-alive" }, { "User-Agent", "libfv-0.0.1" } };
+	inline static CaseInsensitiveMap m_def_headers { { "Accept", "*/*" }, { "Accept-Encoding", "gzip" }, { "Cache-Control", "no-cache" }, { "Connection", "keep-alive" }, { "User-Agent", "libfv-0.0.1" } };
 };
 
 
@@ -184,6 +184,19 @@ struct Response {
 	CaseInsensitiveMap Headers;
 
 	static Task<std::tuple<Response, std::string>> GetResponse (std::function<Task<size_t> (char *, size_t)> _cb);
+};
+
+
+
+struct Cacher {
+	Cacher (std::function<Task<size_t> (char *, size_t)> _cb): ReaderCb (_cb) {}
+	Cacher (std::string &&_tmp, std::function<Task<size_t> (char *, size_t)> _cb): Tmp (std::move (_tmp)), ReaderCb (_cb) {}
+
+	std::function<Task<size_t> (char *, size_t)> GetReaderCb ();
+
+private:
+	std::string Tmp = "";
+	std::function<Task<size_t> (char *, size_t)> ReaderCb;
 };
 
 
@@ -202,12 +215,12 @@ Task<std::shared_ptr<IConn>> Connect (std::string _url, bool _nodelay = false);
 
 
 
-struct TcpConnection: IConn {
+struct TcpConn: IConn {
 	tcp::resolver ResolverImpl;
 	tcp::socket Socket;
 
-	TcpConnection (io_context &_ctx): ResolverImpl (_ctx), Socket (_ctx) {}
-	virtual ~TcpConnection () { Cancel (); Close (); }
+	TcpConn (io_context &_ctx): ResolverImpl (_ctx), Socket (_ctx) {}
+	virtual ~TcpConn () { Cancel (); Close (); }
 	Task<void> Connect (std::string _host, std::string _port, bool _nodelay) override;
 	void Close () override;
 	Task<size_t> Send (char *_data, size_t _size) override;
@@ -217,18 +230,39 @@ struct TcpConnection: IConn {
 
 
 
-struct SslConnection: IConn {
+struct SslConn: IConn {
 	tcp::resolver ResolverImpl;
 	ssl::context SslCtx { ssl::context::tls };
 	ssl::stream<tcp::socket> SslSocket;
 
-	SslConnection (io_context &_ctx): ResolverImpl (_ctx), SslSocket (_ctx, SslCtx) {}
-	virtual ~SslConnection () { Cancel (); Close (); }
+	SslConn (io_context &_ctx): ResolverImpl (_ctx), SslSocket (_ctx, SslCtx) {}
+	virtual ~SslConn () { Cancel (); Close (); }
 	Task<void> Connect (std::string _host, std::string _port, bool _nodelay) override;
 	void Close () override;
 	Task<size_t> Send (char *_data, size_t _size) override;
 	Task<size_t> Recv (char *_data, size_t _size) override;
 	void Cancel () override;
+};
+
+
+
+enum class WsPayloadType { Continue = 0, Text = 1, Binary = 2, Close = 8, Ping = 9, Pong = 10 };
+
+struct WsConn {
+	std::shared_ptr<IConn> Parent;
+
+	WsConn (std::shared_ptr<IConn> _parent): Parent (_parent) {}
+	~WsConn () { Close (); }
+	Task<bool> SendText (char *_data, size_t _size) { co_return co_await _Send (_data, _size, WsPayloadType::Text); }
+	Task<bool> SendBinary (char *_data, size_t _size) { co_return co_await _Send (_data, _size, WsPayloadType::Binary); }
+	Task<bool> SendPing () { co_return co_await _Send (nullptr, 0, WsPayloadType::Ping); }
+	Task<bool> Close () { co_return co_await _Send (nullptr, 0, WsPayloadType::Close); Parent = nullptr; }
+	Task<std::tuple<std::string, WsPayloadType>> Recv (char *_data, size_t _size);
+
+private:
+	Task<bool> _Send (char *_data, size_t _size, WsPayloadType _type);
+
+	std::string m_cache = "";
 };
 
 
@@ -253,23 +287,23 @@ concept TFormOption = std::is_same<T, timeout>::value || std::is_same<T, server>
 	std::is_same<T, body_kv>::value || std::is_same<T, body_file>::value;
 
 template<TFormOption _Op1>
-inline void OptionApply (Request &_r, _Op1 _op) { throw Exception ("暂未支持目标类型特例化"); }
-template<> inline void OptionApply (Request &_r, timeout _t) { _r.Timeout = _t.m_exp; }
-template<> inline void OptionApply (Request &_r, server _s) { _r.Server = _s.m_ip; }
-template<> inline void OptionApply (Request &_r, no_delay _nd) { _r.NoDelay = _nd.m_nd; }
-template<> inline void OptionApply (Request &_r, header _hh) { _r.Headers [_hh.m_key] = _hh.m_value; }
-template<> inline void OptionApply (Request &_r, authorization _auth) { _r.Headers ["Authorization"] = _auth.m_auth; }
-template<> inline void OptionApply (Request &_r, connection _co) { _r.Headers ["Connection"] = _co.m_co; }
-template<> inline void OptionApply (Request &_r, content_type _ct) { _r.Headers ["Content-Type"] = _ct.m_ct; }
-template<> inline void OptionApply (Request &_r, referer _re) { _r.Headers ["Referer"] = _re.m_r; }
-template<> inline void OptionApply (Request &_r, user_agent _ua) { _r.Headers ["User-Agent"] = _ua.m_ua; }
-template<> inline void OptionApply (Request &_r, body_kv _pd) { _r.ContentRaw.push_back (_pd); }
-template<> inline void OptionApply (Request &_r, body_file _pf) { _r.ContentRaw.push_back (_pf); }
+inline void _OptionApply (Request &_r, _Op1 _op) { throw Exception ("暂未支持目标类型特例化"); }
+template<> inline void _OptionApply (Request &_r, timeout _t) { _r.Timeout = _t.m_exp; }
+template<> inline void _OptionApply (Request &_r, server _s) { _r.Server = _s.m_ip; }
+template<> inline void _OptionApply (Request &_r, no_delay _nd) { _r.NoDelay = _nd.m_nd; }
+template<> inline void _OptionApply (Request &_r, header _hh) { _r.Headers [_hh.m_key] = _hh.m_value; }
+template<> inline void _OptionApply (Request &_r, authorization _auth) { _r.Headers ["Authorization"] = _auth.m_auth; }
+template<> inline void _OptionApply (Request &_r, connection _co) { _r.Headers ["Connection"] = _co.m_co; }
+template<> inline void _OptionApply (Request &_r, content_type _ct) { _r.Headers ["Content-Type"] = _ct.m_ct; }
+template<> inline void _OptionApply (Request &_r, referer _re) { _r.Headers ["Referer"] = _re.m_r; }
+template<> inline void _OptionApply (Request &_r, user_agent _ua) { _r.Headers ["User-Agent"] = _ua.m_ua; }
+template<> inline void _OptionApply (Request &_r, body_kv _pd) { _r.ContentRaw.push_back (_pd); }
+template<> inline void _OptionApply (Request &_r, body_file _pf) { _r.ContentRaw.push_back (_pf); }
 
 template<TFormOption _Op1>
-inline void OptionApplys (Request &_r, _Op1 _op1) { OptionApply (_r, _op1); }
+inline void _OptionApplys (Request &_r, _Op1 _op1) { _OptionApply (_r, _op1); }
 template<TFormOption _Op1, TFormOption ..._Ops>
-inline void OptionApplys (Request &_r, _Op1 _op1, _Ops ..._ops) { OptionApply (_r, _op1); OptionApplys (_r, _ops...); }
+inline void _OptionApplys (Request &_r, _Op1 _op1, _Ops ..._ops) { _OptionApply (_r, _op1); _OptionApplys (_r, _ops...); }
 
 
 
@@ -280,7 +314,7 @@ inline Task<Response> Head (std::string _url) {
 template<TOption ..._Ops>
 inline Task<Response> Head (std::string _url, _Ops ..._ops) {
 	Request _r { .Url = _url };
-	OptionApplys (_r, _ops...);
+	_OptionApplys (_r, _ops...);
 	co_return co_await DoMethod (_r, Method::Head);
 }
 inline Task<Response> Option (std::string _url) {
@@ -289,7 +323,7 @@ inline Task<Response> Option (std::string _url) {
 template<TOption ..._Ops>
 inline Task<Response> Option (std::string _url, _Ops ..._ops) {
 	Request _r { .Url = _url };
-	OptionApplys (_r, _ops...);
+	_OptionApplys (_r, _ops...);
 	co_return co_await DoMethod (_r, Method::Option);
 }
 inline Task<Response> Get (std::string _url) {
@@ -298,13 +332,13 @@ inline Task<Response> Get (std::string _url) {
 template<TOption ..._Ops>
 inline Task<Response> Get (std::string _url, _Ops ..._ops) {
 	Request _r { .Url = _url };
-	OptionApplys (_r, _ops...);
+	_OptionApplys (_r, _ops...);
 	co_return co_await DoMethod (_r, Method::Get);
 }
 template<TFormOption ..._Ops>
 inline Task<Response> Post (std::string _url, _Ops ..._ops) {
 	Request _r { .Url = _url };
-	OptionApplys (_r, _ops...);
+	_OptionApplys (_r, _ops...);
 	co_return co_await DoMethod (_r, Method::Post);
 }
 template<TOption ..._Ops>
@@ -312,13 +346,13 @@ inline Task<Response> Post (std::string _url, body_raw _data, _Ops ..._ops) {
 	Request _r { .Url = _url, .Content = _data };
 	_r.Headers ["Content-Type"] = _data.ContentType;
 	_r.Content = _data.Content;
-	OptionApplys (_r, _ops...);
+	_OptionApplys (_r, _ops...);
 	co_return co_await DoMethod (_r, Method::Post);
 }
 template<TFormOption ..._Ops>
 inline Task<Response> Put (std::string _url, _Ops ..._ops) {
 	Request _r { .Url = _url };
-	OptionApplys (_r, _ops...);
+	_OptionApplys (_r, _ops...);
 	co_return co_await DoMethod (_r, Method::Put);
 }
 template<TOption ..._Ops>
@@ -326,7 +360,7 @@ inline Task<Response> Put (std::string _url, body_raw _data, _Ops ..._ops) {
 	Request _r { .Url = _url, .Content = _data };
 	_r.Headers ["Content-Type"] = _data.ContentType;
 	_r.Content = _data.Content;
-	OptionApplys (_r, _ops...);
+	_OptionApplys (_r, _ops...);
 	co_return co_await DoMethod (_r, Method::Put);
 }
 template<TFormOption ..._Ops>
@@ -336,7 +370,7 @@ inline Task<Response> Delete (std::string _url) {
 template<TOption ..._Ops>
 inline Task<Response> Delete (std::string _url, _Ops ..._ops) {
 	Request _r { .Url = _url };
-	OptionApplys (_r, _ops...);
+	_OptionApplys (_r, _ops...);
 	co_return co_await DoMethod (_r, Method::Delete);
 }
 }

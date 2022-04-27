@@ -209,6 +209,34 @@ static std::string random_str (size_t _len) {
 
 
 
+std::function<Task<size_t> (char *, size_t)> fv::Cacher::GetReaderCb () {
+	return [this] (char * _buf, size_t _size) -> Task<size_t> {
+		if (_buf == nullptr || _size == 0)
+			co_return 0;
+		if (Tmp.size () > 0) {
+			size_t _min = Tmp.size () < _size ? Tmp.size () : _size;
+			::memcpy_s (_buf, _size, Tmp.data (), _min);
+			Tmp.erase (0, _min);
+			co_return _min;
+		}
+		co_return co_await ReaderCb (_buf, _size);
+	};
+}
+
+Task<char> fv::Cacher::GetChar () {
+	if (Tmp.size () == 0) {
+		char _buf [1024];
+		size_t _n = co_await ReaderCb (_buf, sizeof (_buf));
+		Tmp.resize (_n);
+		::memcpy_s (&Tmp [0], _n, _buf, _n);
+	}
+	char _ret = Tmp [0];
+	Tmp.erase (0);
+	co_return _ret;
+}
+
+
+
 std::string fv::Request::Serilize (Method _method, std::string _host, std::string _path) {
 	std::stringstream _ss;
 	static std::map<Method, std::string> s_method_names { { Method::Head, "HEAD" }, { Method::Option, "OPTION" }, { Method::Get, "GET" }, { Method::Post, "POST" }, { Method::Put, "PUT" }, { Method::Delete, "DELETE" } };
@@ -302,7 +330,7 @@ bool fv::Request::_content_raw_contains_files () {
 
 
 
-Task<std::tuple<fv::Response, std::string>> fv::Response::GetResponse (std::function<Task<size_t> (char *, size_t)> _cb) {
+Task<std::tuple<fv::Response, std::string>> fv::Response::GetResponse (Cacher &_cache) {
 	std::string _data = "";
 	char _buf [1024];
 	size_t _p;
@@ -370,25 +398,6 @@ Task<std::tuple<fv::Response, std::string>> fv::Response::GetResponse (std::func
 		}
 	}
 	co_return std::make_tuple (_r, _data);
-}
-
-
-
-std::function<Task<size_t> (char *, size_t)> fv::Cacher::GetReaderCb () {
-	return [this] (char * _buf, size_t _size) -> Task<size_t> {
-		if (_buf == nullptr || _size == 0)
-			co_return 0;
-		// TODO 解包
-		//if (Tmp.size () > 0) {
-		//	size_t _min = Tmp.size () < _size ? Tmp.size () : _size;
-		//	::memcpy_s (_buf, _size, Tmp.data (), _min);
-		//	Tmp.erase (0, _min);
-		//	co_return _min;
-		//}
-		//char buf [1024];
-		//ReaderCb ();
-		co_return 0;
-	};
 }
 
 
@@ -601,10 +610,10 @@ Task<fv::Response> fv::DoMethod (Request _r, Method _method) {
 	if (_count < _data.size ())
 		throw Exception ("发送信息不完全，应发 {} 字节，实发 {} 字节。", _data.size (), _count);
 
+	Cacher _cache { [_conn] (char *_data, size_t _size) ->Task<size_t> { co_return co_await _conn->Recv (_data, _size); } };
+
 	// recv
-	auto [_ret, _next_data] = co_await Response::GetResponse ([_conn] (char *_data, size_t _size) ->Task<size_t> {
-		co_return co_await _conn->Recv (_data, _size);
-	});
+	auto [_ret, _next_data] = co_await Response::GetResponse (_cache);
 	co_return _ret;
 }
 

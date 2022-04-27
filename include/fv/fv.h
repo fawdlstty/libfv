@@ -154,6 +154,21 @@ struct body_raw {
 
 
 
+struct Cacher {
+	Cacher (std::function<Task<size_t> (char *, size_t)> _cb): ReaderCb (_cb) {}
+	Cacher (std::string &&_tmp, std::function<Task<size_t> (char *, size_t)> _cb): Tmp (std::move (_tmp)), ReaderCb (_cb) {}
+
+	std::function<Task<size_t> (char *, size_t)> GetReaderCb ();
+	Task<char> GetChar ();
+	// TODO line / size
+
+private:
+	std::string Tmp = "";
+	std::function<Task<size_t> (char *, size_t)> ReaderCb;
+};
+
+
+
 struct Request {
 	TimeSpan Timeout = std::chrono::seconds (0);
 	std::string Server = "";
@@ -183,20 +198,7 @@ struct Response {
 	std::string Content = "";
 	CaseInsensitiveMap Headers;
 
-	static Task<std::tuple<Response, std::string>> GetResponse (std::function<Task<size_t> (char *, size_t)> _cb);
-};
-
-
-
-struct Cacher {
-	Cacher (std::function<Task<size_t> (char *, size_t)> _cb): ReaderCb (_cb) {}
-	Cacher (std::string &&_tmp, std::function<Task<size_t> (char *, size_t)> _cb): Tmp (std::move (_tmp)), ReaderCb (_cb) {}
-
-	std::function<Task<size_t> (char *, size_t)> GetReaderCb ();
-
-private:
-	std::string Tmp = "";
-	std::function<Task<size_t> (char *, size_t)> ReaderCb;
+	static Task<std::tuple<Response, std::string>> GetResponse (Cacher &_cache);
 };
 
 

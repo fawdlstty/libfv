@@ -6,6 +6,7 @@
 #include "fv.h"
 
 #include <regex>
+#include <sstream>
 
 #include <nlohmann/json.hpp>
 
@@ -209,34 +210,6 @@ static std::string random_str (size_t _len) {
 
 
 
-std::function<Task<size_t> (char *, size_t)> fv::Cacher::GetReaderCb () {
-	return [this] (char * _buf, size_t _size) -> Task<size_t> {
-		if (_buf == nullptr || _size == 0)
-			co_return 0;
-		if (Tmp.size () > 0) {
-			size_t _min = Tmp.size () < _size ? Tmp.size () : _size;
-			::memcpy_s (_buf, _size, Tmp.data (), _min);
-			Tmp.erase (0, _min);
-			co_return _min;
-		}
-		co_return co_await ReaderCb (_buf, _size);
-	};
-}
-
-Task<char> fv::Cacher::GetChar () {
-	if (Tmp.size () == 0) {
-		char _buf [1024];
-		size_t _n = co_await ReaderCb (_buf, sizeof (_buf));
-		Tmp.resize (_n);
-		::memcpy_s (&Tmp [0], _n, _buf, _n);
-	}
-	char _ret = Tmp [0];
-	Tmp.erase (0);
-	co_return _ret;
-}
-
-
-
 std::string fv::Request::Serilize (Method _method, std::string _host, std::string _path) {
 	std::stringstream _ss;
 	static std::map<Method, std::string> s_method_names { { Method::Head, "HEAD" }, { Method::Option, "OPTION" }, { Method::Get, "GET" }, { Method::Post, "POST" }, { Method::Put, "PUT" }, { Method::Delete, "DELETE" } };
@@ -330,34 +303,8 @@ bool fv::Request::_content_raw_contains_files () {
 
 
 
-Task<std::tuple<fv::Response, std::string>> fv::Response::GetResponse (Cacher &_cache) {
-	std::string _data = "";
-	char _buf [1024];
-	size_t _p;
-	auto _read_line = [&] () -> Task<std::string> {
-		std::string _tmp = "";
-		while ((_p = _data.find ('\n')) == std::string::npos) {
-			size_t _readed = co_await _cb (_buf, 1024);
-			_data += std::string_view { _buf, _readed };
-		}
-		_tmp = _data.substr (0, _p);
-		if (_tmp [_p - 1] == '\r')
-			_tmp.erase (_p - 1);
-		_data.erase (0, _p + 1);
-		co_return _tmp;
-	};
-	auto _read_count = [&] (size_t _count) ->Task<std::string> {
-		std::string _tmp = "";
-		while (_data.size () < _count) {
-			size_t _readed = co_await _cb (_buf, 1024);
-			_data += std::string_view { _buf, _readed };
-		}
-		_tmp = _data.substr (0, _count);
-		_data.erase (0, _count);
-		co_return _tmp;
-	};
-	//
-	std::string _line = co_await _read_line ();
+Task<fv::Response> fv::Response::GetResponse (std::shared_ptr<IConn> _conn) {
+	std::string _line = co_await _conn->ReadLine ();
 	Response _r {};
 	::sscanf_s (_line.data (), "HTTP/%*[0-9.] %d", &_r.HttpCode);
 	if (_r.HttpCode == -1)
@@ -378,8 +325,8 @@ Task<std::tuple<fv::Response, std::string>> fv::Response::GetResponse (Cacher &_
 		}
 		return _s.substr (_start, _stop - _start);
 	};
-	while ((_line = co_await _read_line ()) != "") {
-		_p = _line.find (':');
+	while ((_line = co_await _conn->ReadLine ()) != "") {
+		size_t _p = _line.find (':');
 		std::string _key = _trim (_line.substr (0, _p));
 		std::string _value = _trim (_line.substr (_p + 1));
 		_r.Headers [_key] = _value;
@@ -387,7 +334,7 @@ Task<std::tuple<fv::Response, std::string>> fv::Response::GetResponse (Cacher &_
 	if (_r.Headers.contains ("Content-Length")) {
 		int _sz = std::stoi (_r.Headers ["Content-Length"]);
 		if (_sz > 0) {
-			_r.Content = co_await _read_count (_sz);
+			_r.Content = co_await _conn->ReadCount (_sz);
 			if (_r.Headers.contains ("Content-Encoding")) {
 				_line = _r.Headers ["Content-Encoding"];
 				std::transform (_line.begin (), _line.end (), _line.begin (), ::tolower);
@@ -397,58 +344,55 @@ Task<std::tuple<fv::Response, std::string>> fv::Response::GetResponse (Cacher &_
 			}
 		}
 	}
-	co_return std::make_tuple (_r, _data);
+	co_return _r;
 }
 
 
 
-Task<std::shared_ptr<fv::IConn>> fv::Connect (std::string _url, bool _nodelay) {
-	auto [_schema, _host, _port, _path] = _parse_url (_url);
-	//
-	if (_schema == "tcp") {
-		if (_path != "/")
-			throw Exception ("url格式错误");
-		auto _conn = std::shared_ptr<IConn> (new TcpConn { Tasks::GetContext () });
-		co_await _conn->Connect (_host, _port, false);
-		co_return _conn;
-	//} else if (_schema == "udp") {
-	//	if (_path != "/")
-	//		throw Exception ("url格式错误");
-	//	throw Exception ("暂不支持的协议：{}", _schema);
-	//} else if (_schema == "ssl") {
-	//	if (_path != "/")
-	//		throw Exception ("url格式错误");
-	//	throw Exception ("暂不支持的协议：{}", _schema);
-	//} else if (_schema == "quic") {
-	//	if (_path != "/")
-	//		throw Exception ("url格式错误");
-	//	throw Exception ("暂不支持的协议：{}", _schema);
-	} else if (_schema == "ws" || _schema == "wss") {
-		throw Exception ("暂不支持的协议：{}", _schema);
-		// connect
-		auto _conn = std::shared_ptr<IConn> (_schema == "ws" ?
-			(IConn*) new TcpConn { Tasks::GetContext () } :
-			new SslConn { Tasks::GetContext () });
-		co_await _conn->Connect (_host, _port, _nodelay);
-
-		// generate data
-		Request _r { .Url = _url };
-		_OptionApplys (_r, no_delay (_nodelay), header ("Pragma", "no-cache"), connection ("Upgrade"), header ("Upgrade", "websocket"),
-			header ("Sec-WebSocket-Version", "13"), header ("Sec-WebSocket-Key", "libfvlibfv=="));
-		std::string _data = _r.Serilize (Method::Get, _host, _path);
-
-		// send
-		size_t _count = co_await _conn->Send (_data.data (), _data.size ());
-		if (_count < _data.size ())
-			throw Exception ("发送信息不完全，应发 {} 字节，实发 {} 字节。", _data.size (), _count);
-
-		// recv
-		auto [_ret, _next_data] = co_await Response::GetResponse ([_conn] (char *_data, size_t _size) ->Task<size_t> {
-			co_return co_await _conn->Recv (_data, _size);
-		});
-	} else {
-		throw Exception ("未知协议：{}", _schema);
+Task<char> fv::IConn::ReadChar () {
+	if (TmpData.size () == 0) {
+		char _buf [1024];
+		size_t _n = co_await RecvImpl (_buf, sizeof (_buf));
+		TmpData.resize (_n);
+		::memcpy_s (&TmpData [0], _n, _buf, _n);
 	}
+	char _ret = TmpData [0];
+	TmpData.erase (0);
+	co_return _ret;
+}
+
+Task<std::string> fv::IConn::ReadLine () {
+	std::string _tmp = "";
+	size_t _p;
+	while ((_p = TmpData.find ('\n')) == std::string::npos) {
+		char _buf [1024];
+		size_t _readed = co_await RecvImpl (_buf, sizeof (_buf));
+		TmpData += std::string_view { _buf, _readed };
+	}
+	_tmp = TmpData.substr (0, _p);
+	if (_tmp [_p - 1] == '\r')
+		_tmp.erase (_p - 1);
+	TmpData.erase (0, _p + 1);
+	co_return _tmp;
+}
+
+Task<std::string> fv::IConn::ReadCount (size_t _count) {
+	std::string _tmp = "";
+	while (TmpData.size () < _count) {
+		char _buf [1024];
+		size_t _readed = co_await RecvImpl (_buf, sizeof (_buf));
+		TmpData += std::string_view { _buf, _readed };
+	}
+	_tmp = TmpData.substr (0, _count);
+	TmpData.erase (0, _count);
+	co_return _tmp;
+}
+
+Task<std::vector<uint8_t>> fv::IConn::ReadCountVec (size_t _count) {
+	std::string _tmp = co_await ReadCount (_count);
+	std::vector<uint8_t> _vec;
+	_vec.assign ((uint8_t *) &_tmp [0], (uint8_t *) &_tmp [_count]);
+	co_return _vec;
 }
 
 
@@ -490,7 +434,7 @@ Task<size_t> fv::TcpConn::Send (char *_data, size_t _size) {
 	co_return _sended;
 }
 
-Task<size_t> fv::TcpConn::Recv (char *_data, size_t _size) {
+Task<size_t> fv::TcpConn::RecvImpl (char *_data, size_t _size) {
 	if (!Socket.is_open ())
 		co_return 0;
 	size_t _count = co_await Socket.async_read_some (boost::asio::buffer (_data, _size), use_awaitable);
@@ -500,18 +444,6 @@ Task<size_t> fv::TcpConn::Recv (char *_data, size_t _size) {
 void fv::TcpConn::Cancel () {
 	ResolverImpl.cancel ();
 	Socket.cancel ();
-}
-
-
-
-Task<std::tuple<std::string, fv::WsPayloadType>> fv::WsConn::Recv (char *_data, size_t _size) {
-	// TODO
-	co_return std::make_tuple (std::string (""), WsPayloadType::Close);
-}
-
-Task<bool> fv::WsConn::_Send (char *_data, size_t _size, WsPayloadType _type) {
-	// TODO
-	co_return false;
 }
 
 
@@ -558,13 +490,122 @@ Task<size_t> fv::SslConn::Send (char *_data, size_t _size) {
 	co_return _sended;
 }
 
-Task<size_t> fv::SslConn::Recv (char *_data, size_t _size) {
+Task<size_t> fv::SslConn::RecvImpl (char *_data, size_t _size) {
 	co_return co_await SslSocket.async_read_some (boost::asio::buffer (_data, _size), use_awaitable);
 }
 
 void fv::SslConn::Cancel () {
 	ResolverImpl.cancel ();
 	SslSocket.next_layer ().cancel ();
+}
+
+
+
+Task<std::tuple<std::string, fv::WsPayloadType>> fv::WsConn::Recv () {
+	std::vector<uint8_t> _tmp = co_await Parent->ReadCountVec (2);
+	bool _is_eof = (_tmp [0] & 0x80) != 0;
+	WsPayloadType _type = (WsPayloadType) (_tmp [0] & 0xf);
+	// Continue = 0, Text = 1, Binary = 2, Close = 8, Ping = 9, Pong = 10
+	if (_type == WsPayloadType::Close) {
+		co_return std::make_tuple (std::string (""), WsPayloadType::Close);
+	} else if (_type == WsPayloadType::Ping) {
+		co_await _Send (nullptr, 0, WsPayloadType::Pong);
+		co_return co_await Recv ();
+	} else if (_type == WsPayloadType::Pong) {
+		co_return co_await Recv ();
+	} else {
+		bool _mask = _tmp [1] & 0x80;
+		long _payload_length = (long) (_tmp [1] & 0x7f);
+		if (_payload_length == 126) {
+			_tmp = co_await Parent->ReadCountVec (2);
+			_payload_length = (((long) _tmp [0]) << 8) + _tmp [1];
+		} else if (_payload_length == 127) {
+			_tmp = co_await Parent->ReadCountVec (8);
+			_payload_length = 0;
+			for (int i = 0; i < 8; ++i)
+				_payload_length = (_payload_length << 8) + _tmp [i];
+		}
+		if (_mask)
+			_tmp = co_await Parent->ReadCountVec (4);
+		std::string _s = co_await Parent->ReadCount ((size_t) _payload_length);
+		if (_mask) {
+			for (size_t i = 0; i < _s.size (); ++i)
+				_s [i] ^= _tmp [i % 4];
+		}
+		if (_type == WsPayloadType::Continue) {
+			auto [_s1, _type1] = co_await Recv ();
+			_s += _s1;
+			co_return std::make_tuple (_s, _type1);
+		} else {
+			co_return std::make_tuple (_s, _type);
+		}
+	}
+	co_return std::make_tuple (std::string (""), WsPayloadType::Close);
+}
+
+Task<bool> fv::WsConn::_Send (char *_data, size_t _size, WsPayloadType _type) {
+	std::stringstream _ss;
+	_ss << (char) (0x80 | (char) _type);
+	if (_size > 0) {
+		if (_size < 126) {
+			_ss << (char) (0x00 | _size);
+		} else if (_size < 0xffff) {
+			_ss << (char) (0x00 | 126) << (char) ((_size >> 8) & 0xff) << (char) (_size & 0xff);
+		} else {
+			int64_t _size64 = (int64_t) _size;
+			for (int i = 7; i >= 0; --i)
+				_ss << (char) ((_size64 >> (i * 8)) & 0xff);
+		}
+		_ss << std::string_view { _data, _size };
+		std::string _to_send = _ss.str ();
+		co_await Parent->Send (_to_send.data (), _to_send.size ());
+	}
+	co_return false;
+}
+
+
+
+Task<std::shared_ptr<fv::IConn>> fv::Connect (std::string _url, bool _nodelay) {
+	auto [_schema, _host, _port, _path] = _parse_url (_url);
+	//
+	if (_schema == "tcp") {
+		if (_path != "/")
+			throw Exception ("url格式错误");
+		auto _conn = std::shared_ptr<IConn> (new TcpConn { Tasks::GetContext () });
+		co_await _conn->Connect (_host, _port, false);
+		co_return _conn;
+	} else {
+		throw Exception ("未知协议：{}", _schema);
+	}
+}
+
+Task<std::shared_ptr<fv::WsConn>> fv::ConnectWS (std::string _url, bool _nodelay) {
+	auto [_schema, _host, _port, _path] = _parse_url (_url);
+	if (_schema == "ws" || _schema == "wss") {
+		throw Exception ("暂不支持的协议：{}", _schema);
+		// connect
+		auto _conn = std::shared_ptr<IConn> (_schema == "ws" ?
+			(IConn*) new TcpConn { Tasks::GetContext () } :
+			new SslConn { Tasks::GetContext () });
+		co_await _conn->Connect (_host, _port, _nodelay);
+
+		// generate data
+		Request _r { .Url = _url };
+		_OptionApplys (_r, no_delay (_nodelay), header ("Pragma", "no-cache"), connection ("Upgrade"), header ("Upgrade", "websocket"),
+			header ("Sec-WebSocket-Version", "13"), header ("Sec-WebSocket-Key", "libfvlibfv=="));
+		std::string _data = _r.Serilize (Method::Get, _host, _path);
+
+		// send
+		size_t _count = co_await _conn->Send (_data.data (), _data.size ());
+		if (_count < _data.size ())
+			throw Exception ("发送信息不完全，应发 {} 字节，实发 {} 字节。", _data.size (), _count);
+
+		// recv
+		co_await Response::GetResponse (_conn);
+		co_return std::make_shared<WsConn> (_conn);
+	} else {
+		throw Exception ("未知协议：{}", _schema);
+	}
 }
 
 
@@ -610,11 +651,8 @@ Task<fv::Response> fv::DoMethod (Request _r, Method _method) {
 	if (_count < _data.size ())
 		throw Exception ("发送信息不完全，应发 {} 字节，实发 {} 字节。", _data.size (), _count);
 
-	Cacher _cache { [_conn] (char *_data, size_t _size) ->Task<size_t> { co_return co_await _conn->Recv (_data, _size); } };
-
 	// recv
-	auto [_ret, _next_data] = co_await Response::GetResponse (_cache);
-	co_return _ret;
+	co_return co_await Response::GetResponse (_conn);
 }
 
 

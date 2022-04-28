@@ -154,21 +154,6 @@ struct body_raw {
 
 
 
-struct Cacher {
-	Cacher (std::function<Task<size_t> (char *, size_t)> _cb): ReaderCb (_cb) {}
-	Cacher (std::string &&_tmp, std::function<Task<size_t> (char *, size_t)> _cb): Tmp (std::move (_tmp)), ReaderCb (_cb) {}
-
-	std::function<Task<size_t> (char *, size_t)> GetReaderCb ();
-	Task<char> GetChar ();
-	// TODO line / size
-
-private:
-	std::string Tmp = "";
-	std::function<Task<size_t> (char *, size_t)> ReaderCb;
-};
-
-
-
 struct Request {
 	TimeSpan Timeout = std::chrono::seconds (0);
 	std::string Server = "";
@@ -193,12 +178,13 @@ private:
 
 
 
+struct IConn;
 struct Response {
 	int HttpCode = -1;
 	std::string Content = "";
 	CaseInsensitiveMap Headers;
 
-	static Task<std::tuple<Response, std::string>> GetResponse (Cacher &_cache);
+	static Task<Response> GetResponse (std::shared_ptr<IConn> _conn);
 };
 
 
@@ -209,15 +195,21 @@ struct IConn {
 	virtual Task<void> Connect (std::string _host, std::string _port, bool _nodelay) = 0;
 	virtual void Close () = 0;
 	virtual Task<size_t> Send (char *_data, size_t _size) = 0;
-	virtual Task<size_t> Recv (char *_data, size_t _size) = 0;
 	virtual void Cancel () = 0;
+
+	Task<char> ReadChar ();
+	Task<std::string> ReadLine ();
+	Task<std::string> ReadCount (size_t _count);
+	Task<std::vector<uint8_t>> ReadCountVec (size_t _count);
+
+protected:
+	virtual Task<size_t> RecvImpl (char *_data, size_t _size) = 0;
+	std::string TmpData = "";
 };
 
-Task<std::shared_ptr<IConn>> Connect (std::string _url, bool _nodelay = false);
 
 
-
-struct TcpConn: IConn {
+struct TcpConn: public IConn {
 	tcp::resolver ResolverImpl;
 	tcp::socket Socket;
 
@@ -226,13 +218,15 @@ struct TcpConn: IConn {
 	Task<void> Connect (std::string _host, std::string _port, bool _nodelay) override;
 	void Close () override;
 	Task<size_t> Send (char *_data, size_t _size) override;
-	Task<size_t> Recv (char *_data, size_t _size) override;
 	void Cancel () override;
+
+protected:
+	Task<size_t> RecvImpl (char *_data, size_t _size) override;
 };
 
 
 
-struct SslConn: IConn {
+struct SslConn: public IConn {
 	tcp::resolver ResolverImpl;
 	ssl::context SslCtx { ssl::context::tls };
 	ssl::stream<tcp::socket> SslSocket;
@@ -242,8 +236,10 @@ struct SslConn: IConn {
 	Task<void> Connect (std::string _host, std::string _port, bool _nodelay) override;
 	void Close () override;
 	Task<size_t> Send (char *_data, size_t _size) override;
-	Task<size_t> Recv (char *_data, size_t _size) override;
 	void Cancel () override;
+
+protected:
+	Task<size_t> RecvImpl (char *_data, size_t _size) override;
 };
 
 
@@ -259,13 +255,14 @@ struct WsConn {
 	Task<bool> SendBinary (char *_data, size_t _size) { co_return co_await _Send (_data, _size, WsPayloadType::Binary); }
 	Task<bool> SendPing () { co_return co_await _Send (nullptr, 0, WsPayloadType::Ping); }
 	Task<bool> Close () { co_return co_await _Send (nullptr, 0, WsPayloadType::Close); Parent = nullptr; }
-	Task<std::tuple<std::string, WsPayloadType>> Recv (char *_data, size_t _size);
+	Task<std::tuple<std::string, WsPayloadType>> Recv ();
 
 private:
 	Task<bool> _Send (char *_data, size_t _size, WsPayloadType _type);
-
-	std::string m_cache = "";
 };
+
+Task<std::shared_ptr<IConn>> Connect (std::string _url, bool _nodelay = false);
+Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url, bool _nodelay = false);
 
 
 

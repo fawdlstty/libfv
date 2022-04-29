@@ -19,6 +19,7 @@
 
 
 
+std::shared_ptr<fv::WsConn> g_conn;
 Task<void> async_func () {
 	//fv::Response _r = co_await fv::Get ("http://www.fawdlstty.com"
 	//	//,fv::server ("106.75.237.200"),
@@ -26,8 +27,20 @@ Task<void> async_func () {
 	//	//fv::http_header ("MyHeader", "MyValue"),
 	//	//fv::auth ("admin", "123456")
 	//);
-	fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com");
-	std::cout << _r.Content;
+	//fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com");
+	//std::cout << _r.Content;
+	try {
+		g_conn = co_await fv::ConnectWS ("ws://127.0.0.1:1234/ws");
+		std::cout << "connected." << std::endl;
+		while (true) {
+			auto [_data, _type] = co_await g_conn->Recv ();
+			std::cout << _data << std::endl;
+		}
+	} catch (std::exception &_ex) {
+		std::cout << "[async_func] catch exception: " << _ex.what () << std::endl;
+	} catch (...) {
+		std::cout << "[async_func] catch exception." << std::endl;
+	}
 }
 
 int main () {
@@ -35,8 +48,21 @@ int main () {
 	::SetConsoleOutputCP (65001);
 	//
 	fv::Tasks::Start (true);
+	fv::Config::SslVerifyFunc = [] (bool preverified, fv::Ssl::verify_context &ctx) { return true; };
 	fv::Tasks::RunAsync (async_func);
-	::_getch ();
+	while (true) {
+		::_getch ();
+		fv::Tasks::RunAsync ([] () -> Task<void> {
+			static std::string _str = "{\"cmd\":\"hello\",\"seq\":\"0\"}";
+			try {
+				co_await g_conn->SendText (_str.data (), _str.size ());
+			} catch (std::exception &_ex) {
+				std::cout << "[main] catch exception: " << _ex.what () << std::endl;
+			} catch (...) {
+				std::cout << "[main] catch exception." << std::endl;
+			}
+		});
+	}
 	fv::Tasks::Stop ();
 	return 0;
 }

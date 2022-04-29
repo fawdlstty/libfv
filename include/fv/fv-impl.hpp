@@ -24,6 +24,11 @@ using boost::asio::use_awaitable;
 
 
 
+fv::SslCheckCb fv::Config::SslVerifyFunc = [] (bool preverified, Ssl::verify_context &ctx) { return true; };
+bool fv::Config::NoDelay = false;
+
+
+
 static std::tuple<std::string, std::string, std::string, std::string> _parse_url (std::string _url) {
 	size_t _p = _url.find ('#');
 	if (_p != std::string::npos)
@@ -156,7 +161,7 @@ void fv::Tasks::Stop () {
 		std::this_thread::sleep_for (std::chrono::milliseconds (1));
 }
 
-fv::io_context fv::Tasks::m_ctx { 1 };
+fv::IoContext fv::Tasks::m_ctx { 1 };
 std::atomic_bool fv::Tasks::m_run = true, fv::Tasks::m_running = false;
 
 
@@ -397,12 +402,12 @@ Task<std::vector<uint8_t>> fv::IConn::ReadCountVec (size_t _count) {
 
 
 
-Task<void> fv::TcpConn::Connect (std::string _host, std::string _port, bool _nodelay) {
+Task<void> fv::TcpConn::Connect (std::string _host, std::string _port) {
 	Close ();
 	std::regex _r { "(\\d+\\.){3}\\d+" };
 	if (std::regex_match (_host, _r)) {
 		uint16_t _sport = (uint16_t) std::stoi (_port);
-		co_await Socket.async_connect (tcp::endpoint { boost::asio::ip::address::from_string (_host), _sport }, use_awaitable);
+		co_await Socket.async_connect (Tcp::endpoint { boost::asio::ip::address::from_string (_host), _sport }, use_awaitable);
 	} else {
 		std::string _sport = std::format ("{}", _port);
 		auto _it = co_await ResolverImpl.async_resolve (_host, _sport, use_awaitable);
@@ -410,8 +415,8 @@ Task<void> fv::TcpConn::Connect (std::string _host, std::string _port, bool _nod
 	}
 	if (!Socket.is_open ())
 		throw Exception ("无法连接至目标服务器 {}", _host);
-	if (_nodelay)
-		Socket.set_option (tcp::no_delay { _nodelay });
+	if (Config::NoDelay)
+		Socket.set_option (Tcp::no_delay { true });
 }
 
 void fv::TcpConn::Close () {
@@ -421,17 +426,16 @@ void fv::TcpConn::Close () {
 	}
 }
 
-Task<size_t> fv::TcpConn::Send (char *_data, size_t _size) {
+Task<void> fv::TcpConn::Send (char *_data, size_t _size) {
 	if (!Socket.is_open ())
-		co_return 0;
+		throw Exception ("Cannot send data to a closed connection.");
 	size_t _sended = 0;
 	while (_sended < _size) {
 		size_t _tmp_send = co_await Socket.async_send (boost::asio::buffer (&_data [_sended], _size - _sended), use_awaitable);
 		if (_tmp_send == 0)
-			co_return _sended;
+			throw Exception ("Connection temp closed.");
 		_sended += _tmp_send;
 	}
-	co_return _sended;
 }
 
 Task<size_t> fv::TcpConn::RecvImpl (char *_data, size_t _size) {
@@ -448,26 +452,24 @@ void fv::TcpConn::Cancel () {
 
 
 
-Task<void> fv::SslConn::Connect (std::string _host, std::string _port, bool _nodelay) {
+Task<void> fv::SslConn::Connect (std::string _host, std::string _port) {
 	Close ();
-	SslSocket.set_verify_mode (ssl::verify_peer);
-	SslSocket.set_verify_callback ([] (bool preverified, ssl::verify_context &ctx) {
-		return true;
-	});
+	SslSocket.set_verify_mode (Ssl::verify_peer);
+	SslSocket.set_verify_callback (Config::SslVerifyFunc);
 	std::regex _r { "(\\d+\\.){3}\\d+" };
 	if (std::regex_match (_host, _r)) {
 		uint16_t _sport = (uint16_t) std::stoi (_port);
-		co_await SslSocket.next_layer ().async_connect (tcp::endpoint { boost::asio::ip::address::from_string (_host), _sport }, use_awaitable);
+		co_await SslSocket.next_layer ().async_connect (Tcp::endpoint { boost::asio::ip::address::from_string (_host), _sport }, use_awaitable);
 	} else {
 		std::string _sport = std::format ("{}", _port);
 		auto _it = co_await ResolverImpl.async_resolve (_host, _sport, use_awaitable);
 		co_await SslSocket.next_layer ().async_connect (_it->endpoint (), use_awaitable);
 	}
 	if (!SslSocket.next_layer ().is_open ())
-		throw Exception ("无法连接至目标服务器 {}", _host);
-	if (_nodelay)
-		SslSocket.next_layer ().set_option (tcp::no_delay { _nodelay });
-	co_await SslSocket.async_handshake (ssl::stream_base::client, use_awaitable);
+		throw Exception ("Cannot connect to server {}", _host);
+	if (Config::NoDelay)
+		SslSocket.next_layer ().set_option (Tcp::no_delay { true });
+	co_await SslSocket.async_handshake (Ssl::stream_base::client, use_awaitable);
 }
 
 void fv::SslConn::Close () {
@@ -477,17 +479,16 @@ void fv::SslConn::Close () {
 	}
 }
 
-Task<size_t> fv::SslConn::Send (char *_data, size_t _size) {
+Task<void> fv::SslConn::Send (char *_data, size_t _size) {
 	if (!SslSocket.next_layer ().is_open ())
-		co_return 0;
+		throw Exception ("Cannot send data to a closed connection.");
 	size_t _sended = 0;
 	while (_sended < _size) {
 		size_t _tmp_send = co_await SslSocket.async_write_some (boost::asio::buffer (&_data [_sended], _size - _sended), use_awaitable);
 		if (_tmp_send == 0)
-			co_return _sended;
+			throw Exception ("Connection temp closed.");
 		_sended += _tmp_send;
 	}
-	co_return _sended;
 }
 
 Task<size_t> fv::SslConn::RecvImpl (char *_data, size_t _size) {
@@ -501,19 +502,19 @@ void fv::SslConn::Cancel () {
 
 
 
-Task<std::tuple<std::string, fv::WsPayloadType>> fv::WsConn::Recv () {
+Task<std::tuple<std::string, fv::WsType>> fv::WsConn::Recv () {
 	std::vector<uint8_t> _tmp = co_await Parent->ReadCountVec (2);
 	bool _is_eof = (_tmp [0] & 0x80) != 0;
-	WsPayloadType _type = (WsPayloadType) (_tmp [0] & 0xf);
-	// Continue = 0, Text = 1, Binary = 2, Close = 8, Ping = 9, Pong = 10
-	if (_type == WsPayloadType::Close) {
-		co_return std::make_tuple (std::string (""), WsPayloadType::Close);
-	} else if (_type == WsPayloadType::Ping) {
-		co_await _Send (nullptr, 0, WsPayloadType::Pong);
+	WsType _type = (WsType) (_tmp [0] & 0xf);
+	if (_type == WsType::Close) {
+		Close ();
+		throw Exception ("Remote send close msg.");
+	} else if (_type == WsType::Ping) {
+		co_await _Send (nullptr, 0, WsType::Pong);
 		co_return co_await Recv ();
-	} else if (_type == WsPayloadType::Pong) {
-		co_return co_await Recv ();
-	} else {
+	} else if (_type == WsType::Pong) {
+		co_return std::make_tuple (std::string (""), WsType::Pong);
+	} else if (_type == WsType::Text || _type == WsType::Binary) {
 		bool _mask = _tmp [1] & 0x80;
 		long _payload_length = (long) (_tmp [1] & 0x7f);
 		if (_payload_length == 126) {
@@ -532,73 +533,92 @@ Task<std::tuple<std::string, fv::WsPayloadType>> fv::WsConn::Recv () {
 			for (size_t i = 0; i < _s.size (); ++i)
 				_s [i] ^= _tmp [i % 4];
 		}
-		if (_type == WsPayloadType::Continue) {
+		if (_type == WsType::Continue) {
 			auto [_s1, _type1] = co_await Recv ();
 			_s += _s1;
 			co_return std::make_tuple (_s, _type1);
 		} else {
 			co_return std::make_tuple (_s, _type);
 		}
+	} else {
+		Parent = nullptr;
+		throw Exception ("Unparsed websocket frame.");
 	}
-	co_return std::make_tuple (std::string (""), WsPayloadType::Close);
+	co_return std::make_tuple (std::string (""), WsType::Close);
 }
 
-Task<bool> fv::WsConn::_Send (char *_data, size_t _size, WsPayloadType _type) {
+Task<void> fv::WsConn::_Send (char *_data, size_t _size, WsType _type) {
+	if (!IsConnect ()) {
+		if (_type == WsType::Close)
+			co_return;
+		throw Exception ("Cannot send data to a closed connection.");
+	}
 	std::stringstream _ss;
 	_ss << (char) (0x80 | (char) _type);
 	if (_size > 0) {
 		if (_size < 126) {
-			_ss << (char) (0x00 | _size);
+			_ss << (char) (0x80 | _size);
 		} else if (_size < 0xffff) {
-			_ss << (char) (0x00 | 126) << (char) ((_size >> 8) & 0xff) << (char) (_size & 0xff);
+			_ss << (char) (0x80 | 126) << (char) ((_size >> 8) & 0xff) << (char) (_size & 0xff);
 		} else {
+			_ss << (char) (0x80 | 127);
 			int64_t _size64 = (int64_t) _size;
 			for (int i = 7; i >= 0; --i)
 				_ss << (char) ((_size64 >> (i * 8)) & 0xff);
 		}
+		for (size_t i = 0; i < 4; ++i)
+			_ss << (char) 0xff;
 		_ss << std::string_view { _data, _size };
-		std::string _to_send = _ss.str ();
+	} else {
+		_ss << '\0';
+	}
+	std::string _to_send = _ss.str ();
+	std::vector<char> _mask = { (char) 0xff, (char) 0xff, (char) 0xff, (char) 0xff };
+	for (size_t i = 6; i < _to_send.size (); ++i)
+		_to_send [i] ^= _mask [i % 4];
+	if (_type == WsType::Close) {
+		try {
+			co_await Parent->Send (_to_send.data (), _to_send.size ());
+		} catch (...) {
+		}
+	} else {
 		co_await Parent->Send (_to_send.data (), _to_send.size ());
 	}
-	co_return false;
 }
 
 
 
-Task<std::shared_ptr<fv::IConn>> fv::Connect (std::string _url, bool _nodelay) {
+Task<std::shared_ptr<fv::IConn>> fv::Connect (std::string _url) {
 	auto [_schema, _host, _port, _path] = _parse_url (_url);
 	//
 	if (_schema == "tcp") {
 		if (_path != "/")
 			throw Exception ("url格式错误");
 		auto _conn = std::shared_ptr<IConn> (new TcpConn { Tasks::GetContext () });
-		co_await _conn->Connect (_host, _port, false);
+		co_await _conn->Connect (_host, _port);
 		co_return _conn;
 	} else {
 		throw Exception ("未知协议：{}", _schema);
 	}
 }
 
-Task<std::shared_ptr<fv::WsConn>> fv::ConnectWS (std::string _url, bool _nodelay) {
+Task<std::shared_ptr<fv::WsConn>> fv::ConnectWS (std::string _url) {
 	auto [_schema, _host, _port, _path] = _parse_url (_url);
 	if (_schema == "ws" || _schema == "wss") {
-		throw Exception ("暂不支持的协议：{}", _schema);
 		// connect
 		auto _conn = std::shared_ptr<IConn> (_schema == "ws" ?
 			(IConn*) new TcpConn { Tasks::GetContext () } :
 			new SslConn { Tasks::GetContext () });
-		co_await _conn->Connect (_host, _port, _nodelay);
+		co_await _conn->Connect (_host, _port);
 
 		// generate data
 		Request _r { .Url = _url };
-		_OptionApplys (_r, no_delay (_nodelay), header ("Pragma", "no-cache"), connection ("Upgrade"), header ("Upgrade", "websocket"),
+		_OptionApplys (_r, header ("Pragma", "no-cache"), connection ("Upgrade"), header ("Upgrade", "websocket"),
 			header ("Sec-WebSocket-Version", "13"), header ("Sec-WebSocket-Key", "libfvlibfv=="));
 		std::string _data = _r.Serilize (Method::Get, _host, _path);
 
 		// send
-		size_t _count = co_await _conn->Send (_data.data (), _data.size ());
-		if (_count < _data.size ())
-			throw Exception ("发送信息不完全，应发 {} 字节，实发 {} 字节。", _data.size (), _count);
+		co_await _conn->Send (_data.data (), _data.size ());
 
 		// recv
 		co_await Response::GetResponse (_conn);
@@ -612,7 +632,6 @@ Task<std::shared_ptr<fv::WsConn>> fv::ConnectWS (std::string _url, bool _nodelay
 
 fv::timeout::timeout (TimeSpan _exp): m_exp (_exp) {}
 fv::server::server (std::string _ip): m_ip (_ip) {}
-fv::no_delay::no_delay (bool _nd): m_nd (_nd) {}
 fv::header::header (std::string _key, std::string _value): m_key (_key), m_value (_value) {}
 fv::authorization::authorization (std::string _auth): m_auth (_auth) {}
 fv::authorization::authorization (std::string _uid, std::string _pwd): m_auth (std::format ("Basic {}", base64_encode (std::format ("{}:{}", _uid, _pwd)))) {}
@@ -641,15 +660,13 @@ Task<fv::Response> fv::DoMethod (Request _r, Method _method) {
 	}
 
 	// connect
-	co_await _conn->Connect (_r.Server != "" ? _r.Server : _host, _port, _r.NoDelay);
+	co_await _conn->Connect (_r.Server != "" ? _r.Server : _host, _port);
 
 	// generate data
 	std::string _data = _r.Serilize (_method, _host, _path);
 
 	// send
-	size_t _count = co_await _conn->Send (_data.data (), _data.size ());
-	if (_count < _data.size ())
-		throw Exception ("发送信息不完全，应发 {} 字节，实发 {} 字节。", _data.size (), _count);
+	co_await _conn->Send (_data.data (), _data.size ());
 
 	// recv
 	co_return co_await Response::GetResponse (_conn);

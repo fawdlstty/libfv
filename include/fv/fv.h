@@ -20,16 +20,25 @@
 
 namespace fv {
 #define Task boost::asio::awaitable
-using tcp = boost::asio::ip::tcp;
-using udp = boost::asio::ip::udp;
-namespace ssl = boost::asio::ssl;
-using io_context = boost::asio::io_context;
+using Tcp = boost::asio::ip::tcp;
+using Udp = boost::asio::ip::udp;
+namespace Ssl = boost::asio::ssl;
+using IoContext = boost::asio::io_context;
 using TimeSpan = std::chrono::system_clock::duration;
+using SslCheckCb = std::function<bool (bool, Ssl::verify_context &)>;
+
 enum class Method { Head, Option, Get, Post, Put, Delete };
 
 struct CaseInsensitiveHash { size_t operator() (const std::string &str) const noexcept; };
 struct CaseInsensitiveEqual { bool operator() (const std::string &str1, const std::string &str2) const noexcept; };
 using CaseInsensitiveMap = std::unordered_map<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual>;
+
+
+
+struct Config {
+	static SslCheckCb SslVerifyFunc;
+	static bool NoDelay;
+};
 
 
 
@@ -72,20 +81,14 @@ struct Tasks {
 
 	template<typename F, typename... Args>
 	static void RunAsync (F &&f, Args... args) { return RunAsync (std::bind (f, args...)); }
-
-	// 异步延时
 	static Task<void> Delay (TimeSpan _dt);
-
-	// 启动异步任务池
 	static void Start (bool _new_thread);
-
-	// 停止异步任务池
 	static void Stop ();
 
-	static io_context &GetContext () { return m_ctx; }
+	static IoContext &GetContext () { return m_ctx; }
 
 private:
-	static io_context m_ctx;
+	static IoContext m_ctx;
 	static std::atomic_bool m_run, m_running;
 };
 
@@ -157,7 +160,6 @@ struct body_raw {
 struct Request {
 	TimeSpan Timeout = std::chrono::seconds (0);
 	std::string Server = "";
-	bool NoDelay = false;
 	//
 	std::string Url = "";
 	std::string Content = "";
@@ -192,9 +194,10 @@ struct Response {
 struct IConn {
 	IConn () = default;
 	virtual ~IConn () = default;
-	virtual Task<void> Connect (std::string _host, std::string _port, bool _nodelay) = 0;
+	virtual Task<void> Connect (std::string _host, std::string _port) = 0;
+	virtual bool IsConnect () = 0;
 	virtual void Close () = 0;
-	virtual Task<size_t> Send (char *_data, size_t _size) = 0;
+	virtual Task<void> Send (char *_data, size_t _size) = 0;
 	virtual void Cancel () = 0;
 
 	Task<char> ReadChar ();
@@ -210,14 +213,15 @@ protected:
 
 
 struct TcpConn: public IConn {
-	tcp::resolver ResolverImpl;
-	tcp::socket Socket;
+	Tcp::resolver ResolverImpl;
+	Tcp::socket Socket;
 
-	TcpConn (io_context &_ctx): ResolverImpl (_ctx), Socket (_ctx) {}
+	TcpConn (IoContext &_ctx): ResolverImpl (_ctx), Socket (_ctx) {}
 	virtual ~TcpConn () { Cancel (); Close (); }
-	Task<void> Connect (std::string _host, std::string _port, bool _nodelay) override;
+	Task<void> Connect (std::string _host, std::string _port) override;
+	bool IsConnect () override { return Socket.is_open (); }
 	void Close () override;
-	Task<size_t> Send (char *_data, size_t _size) override;
+	Task<void> Send (char *_data, size_t _size) override;
 	void Cancel () override;
 
 protected:
@@ -227,15 +231,16 @@ protected:
 
 
 struct SslConn: public IConn {
-	tcp::resolver ResolverImpl;
-	ssl::context SslCtx { ssl::context::tls };
-	ssl::stream<tcp::socket> SslSocket;
+	Tcp::resolver ResolverImpl;
+	Ssl::context SslCtx { Ssl::context::tls };
+	Ssl::stream<Tcp::socket> SslSocket;
 
-	SslConn (io_context &_ctx): ResolverImpl (_ctx), SslSocket (_ctx, SslCtx) {}
+	SslConn (IoContext &_ctx): ResolverImpl (_ctx), SslSocket (_ctx, SslCtx) {}
 	virtual ~SslConn () { Cancel (); Close (); }
-	Task<void> Connect (std::string _host, std::string _port, bool _nodelay) override;
+	Task<void> Connect (std::string _host, std::string _port) override;
+	bool IsConnect () override { return SslSocket.next_layer ().is_open (); }
 	void Close () override;
-	Task<size_t> Send (char *_data, size_t _size) override;
+	Task<void> Send (char *_data, size_t _size) override;
 	void Cancel () override;
 
 protected:
@@ -244,31 +249,31 @@ protected:
 
 
 
-enum class WsPayloadType { Continue = 0, Text = 1, Binary = 2, Close = 8, Ping = 9, Pong = 10 };
+enum class WsType { Continue = 0, Text = 1, Binary = 2, Close = 8, Ping = 9, Pong = 10 };
 
 struct WsConn {
 	std::shared_ptr<IConn> Parent;
 
 	WsConn (std::shared_ptr<IConn> _parent): Parent (_parent) {}
 	~WsConn () { Close (); }
-	Task<bool> SendText (char *_data, size_t _size) { co_return co_await _Send (_data, _size, WsPayloadType::Text); }
-	Task<bool> SendBinary (char *_data, size_t _size) { co_return co_await _Send (_data, _size, WsPayloadType::Binary); }
-	Task<bool> SendPing () { co_return co_await _Send (nullptr, 0, WsPayloadType::Ping); }
-	Task<bool> Close () { co_return co_await _Send (nullptr, 0, WsPayloadType::Close); Parent = nullptr; }
-	Task<std::tuple<std::string, WsPayloadType>> Recv ();
+	bool IsConnect () { return Parent && Parent->IsConnect (); }
+	Task<void> SendText (char *_data, size_t _size) { co_await _Send (_data, _size, WsType::Text); }
+	Task<void> SendBinary (char *_data, size_t _size) { co_await _Send (_data, _size, WsType::Binary); }
+	Task<void> SendPing () { co_await _Send (nullptr, 0, WsType::Ping); }
+	Task<void> Close () { co_await _Send (nullptr, 0, WsType::Close); Parent = nullptr; }
+	Task<std::tuple<std::string, WsType>> Recv ();
 
 private:
-	Task<bool> _Send (char *_data, size_t _size, WsPayloadType _type);
+	Task<void> _Send (char *_data, size_t _size, WsType _type);
 };
 
-Task<std::shared_ptr<IConn>> Connect (std::string _url, bool _nodelay = false);
-Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url, bool _nodelay = false);
+Task<std::shared_ptr<IConn>> Connect (std::string _url);
+Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url);
 
 
 
 struct timeout { timeout (TimeSpan _exp); TimeSpan m_exp; };
 struct server { server (std::string _ip); std::string m_ip; };
-struct no_delay { no_delay (bool _nd); bool m_nd; };
 struct header { header (std::string _key, std::string _value); std::string m_key, m_value; };
 struct authorization { authorization (std::string _auth); authorization (std::string _uid, std::string _pwd); std::string m_auth; };
 struct connection { connection (std::string _co); std::string m_co; };
@@ -276,11 +281,11 @@ struct content_type { content_type (std::string _ct); std::string m_ct; };
 struct referer { referer (std::string _r); std::string m_r; };
 struct user_agent { user_agent (std::string _ua); std::string m_ua; };
 template<typename T>
-concept TOption = std::is_same<T, timeout>::value || std::is_same<T, server>::value || std::is_same<T, no_delay>::value ||
+concept TOption = std::is_same<T, timeout>::value || std::is_same<T, server>::value ||
 	std::is_same<T, header>::value || std::is_same<T, authorization>::value || std::is_same<T, connection>::value ||
 	std::is_same<T, content_type>::value || std::is_same<T, referer>::value || std::is_same<T, user_agent>::value;
 template<typename T>
-concept TFormOption = std::is_same<T, timeout>::value || std::is_same<T, server>::value || std::is_same<T, no_delay>::value ||
+concept TFormOption = std::is_same<T, timeout>::value || std::is_same<T, server>::value ||
 	std::is_same<T, header>::value || std::is_same<T, authorization>::value || std::is_same<T, connection>::value ||
 	std::is_same<T, content_type>::value || std::is_same<T, referer>::value || std::is_same<T, user_agent>::value ||
 	std::is_same<T, body_kv>::value || std::is_same<T, body_file>::value;
@@ -289,7 +294,6 @@ template<TFormOption _Op1>
 inline void _OptionApply (Request &_r, _Op1 _op) { throw Exception ("暂未支持目标类型特例化"); }
 template<> inline void _OptionApply (Request &_r, timeout _t) { _r.Timeout = _t.m_exp; }
 template<> inline void _OptionApply (Request &_r, server _s) { _r.Server = _s.m_ip; }
-template<> inline void _OptionApply (Request &_r, no_delay _nd) { _r.NoDelay = _nd.m_nd; }
 template<> inline void _OptionApply (Request &_r, header _hh) { _r.Headers [_hh.m_key] = _hh.m_value; }
 template<> inline void _OptionApply (Request &_r, authorization _auth) { _r.Headers ["Authorization"] = _auth.m_auth; }
 template<> inline void _OptionApply (Request &_r, connection _co) { _r.Headers ["Connection"] = _co.m_co; }

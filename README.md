@@ -1,6 +1,10 @@
 ﻿# libfv
 
-基于 boost.asio 的 C++20 纯头文件异步 HTTP 库
+libfv 是一个基于 boost.asio 的 C++20 纯头文件异步 HTTP 库
+
+你可以通过它使用纯异步的网络功能，当然你也能完全不使用网络，仅使用异步包装功能，让你的项目支持异步开发。
+
+库除了提供网络功能外，还提供多种异步工具，比如定时器、信号量等。
 
 ## 配置环境
 
@@ -149,7 +153,7 @@ co_await _conn->Send (_str.data (), _str.size ());
 co_await _conn->Close ();
 ```
 
-## 附带的其他异步方法
+## 附带的其他异步功能
 
 ```cpp
 // 暂停 10 秒
@@ -157,6 +161,19 @@ co_await fv::Tasks::Delay (std::chrono::seconds (10));
 
 // 外部需要用到 io_context
 boost::asio::io_context &_ctx = fv::Tasks::GetContext ();
+
+// 异步方法内同步
+// 创建信号量
+AsyncSemaphore _sema { 1 };
+// 尝试等待信号
+bool _success = _sema.TryAcquire ();
+// 异步等待信号
+co_await _sema.AcquireAsync ();
+ // 超时异步等待信号
+bool _success = co_await _sema.AcquireForAsync (std::chrono::seconds (10));
+bool _success = co_await _sema.AcquireForAsync (std::chrono::system_clock::now () + std::chrono::seconds (10));
+// 释放信号
+_sema.Release ();
 ```
 
 ## Roadmap

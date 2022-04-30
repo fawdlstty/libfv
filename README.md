@@ -1,6 +1,6 @@
 ﻿# libfv
 
-libfv 是一个基于 boost.asio 的 C++20 纯头文件异步 HTTP 库
+libfv 是 C++20 纯头文件异步库，支持 TCP、SSL、Http1.1、websocket
 
 你可以通过它使用纯异步的网络功能，当然你也能完全不使用网络，仅使用异步包装功能，让你的项目支持异步开发。
 
@@ -41,9 +41,15 @@ libfv 是一个基于 boost.asio 的 C++20 纯头文件异步 HTTP 库
 		fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_kv ("a", "aaa"));
 		std::cout << _r.Content;
 	}
+	// 带参异步函数
+	Task<void> async_func2 (int n) {
+		std::cout << n << std::endl;
+		co_return;
+	}
 
-	// 执行异步函数
+	// 执行异步函数，可以把 std::function<Task<void> ()> 类型方法塞进去
 	fv::Tasks::RunAsync (async_func);
+	fv::Tasks::RunAsync (async_func2, 5);
 	```
 
 现在我们已经创建好了异步函数环境，可以自由在里面编写异步代码啦！

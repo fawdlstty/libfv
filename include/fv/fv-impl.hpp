@@ -10,14 +10,16 @@
 
 #include <nlohmann/json.hpp>
 
+#ifndef ZLIB_CONST
 #pragma warning (push)
 #pragma warning (disable: 4068)
-#include <gzip/compress.hpp>
 #include <gzip/config.hpp>
+#include <gzip/compress.hpp>
 #include <gzip/decompress.hpp>
 #include <gzip/utils.hpp>
 #include <gzip/version.hpp>
 #pragma warning (pop)
+#endif
 
 using boost::asio::socket_base;
 using boost::asio::use_awaitable;

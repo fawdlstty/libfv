@@ -3,12 +3,17 @@
 
 
 
+#include <atomic>
 #include <chrono>
-#include <map>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <optional>
 #include <semaphore>
 #include <string>
 #include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
@@ -165,7 +170,7 @@ struct Request {
 	std::string Content = "";
 	std::vector<std::variant<body_kv, body_file>> ContentRaw;
 	CaseInsensitiveMap Headers = DefaultHeaders ();
-	std::map<std::string, std::string> Cookies;
+	std::unordered_map<std::string, std::string> Cookies;
 
 	static CaseInsensitiveMap DefaultHeaders () { return m_def_headers; }
 	static void SetDefaultHeader (std::string _key, std::string _value) { m_def_headers [_key] = _value; }
@@ -187,6 +192,10 @@ struct Response {
 	CaseInsensitiveMap Headers;
 
 	static Task<Response> GetResponse (std::shared_ptr<IConn> _conn);
+	static Response FromText (std::string _text);
+
+private:
+	static void InitDefaultHeaders (CaseInsensitiveMap &_map);
 };
 
 
@@ -204,6 +213,7 @@ struct IConn {
 	Task<std::string> ReadLine ();
 	Task<std::string> ReadCount (size_t _count);
 	Task<std::vector<uint8_t>> ReadCountVec (size_t _count);
+	Task<std::string> ReadSome ();
 
 protected:
 	virtual Task<size_t> RecvImpl (char *_data, size_t _size) = 0;
@@ -217,7 +227,27 @@ struct TcpConn: public IConn {
 	Tcp::socket Socket;
 
 	TcpConn (IoContext &_ctx): ResolverImpl (_ctx), Socket (_ctx) {}
+
 	virtual ~TcpConn () { Cancel (); Close (); }
+	Task<void> Connect (std::string _host, std::string _port) override;
+	bool IsConnect () override { return Socket.is_open (); }
+	void Close () override;
+	Task<void> Send (char *_data, size_t _size) override;
+	void Cancel () override;
+
+protected:
+	Task<size_t> RecvImpl (char *_data, size_t _size) override;
+};
+
+
+
+struct TcpConn2: public IConn {
+	Tcp::socket Socket;
+	int64_t Id = -1;
+
+	TcpConn2 (Tcp::socket _sock): Socket (std::move (_sock)) { if (Config::NoDelay) Socket.set_option (Tcp::no_delay { true }); }
+
+	virtual ~TcpConn2 () { Cancel (); Close (); }
 	Task<void> Connect (std::string _host, std::string _port) override;
 	bool IsConnect () override { return Socket.is_open (); }
 	void Close () override;

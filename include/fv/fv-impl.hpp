@@ -26,8 +26,9 @@ using boost::asio::use_awaitable;
 
 
 
-fv::SslCheckCb fv::Config::SslVerifyFunc = [] (bool preverified, Ssl::verify_context &ctx) { return true; };
-bool fv::Config::NoDelay = false;
+namespace fv {
+SslCheckCb Config::SslVerifyFunc = [] (bool preverified, Ssl::verify_context &ctx) { return true; };
+bool Config::NoDelay = false;
 
 
 
@@ -62,7 +63,7 @@ static std::tuple<std::string, std::string, std::string, std::string> _parse_url
 		} else if (_schema == "https" || _schema == "wss") {
 			_port = "443";
 		} else {
-			throw fv::Exception ("未知端口");
+			throw Exception ("未知端口");
 		}
 	}
 	return { _schema, _host, _port, _path };
@@ -70,16 +71,16 @@ static std::tuple<std::string, std::string, std::string, std::string> _parse_url
 
 
 
-bool fv::CaseInsensitiveEqual::operator() (const std::string &str1, const std::string &str2) const noexcept {
+bool CaseInsensitiveEqual::operator() (const std::string &str1, const std::string &str2) const noexcept {
 	return str1.size () == str2.size () &&
 		std::equal (str1.begin (), str1.end (), str2.begin (), [] (char a, char b) {
 		return tolower (a) == tolower (b);
-	});
+			});
 }
 
 
 
-size_t fv::CaseInsensitiveHash::operator() (const std::string &str) const noexcept {
+size_t CaseInsensitiveHash::operator() (const std::string &str) const noexcept {
 	size_t h = 0;
 	std::hash<int> hash {};
 	for (auto c : str)
@@ -109,17 +110,17 @@ std::string percent_str_encode (std::string_view data) {
 
 
 
-Task<void> fv::AsyncSemaphore::AcquireAsync () {
+Task<void> AsyncSemaphore::AcquireAsync () {
 	while (!m_sp.try_acquire ()) {
 		boost::asio::steady_timer timer (co_await boost::asio::this_coro::executor);
 		timer.expires_after (std::chrono::milliseconds (1));
 		co_await timer.async_wait (use_awaitable);
 	}
 }
-Task<bool> fv::AsyncSemaphore::AcquireForAsync (TimeSpan _span) {
+Task<bool> AsyncSemaphore::AcquireForAsync (TimeSpan _span) {
 	co_return co_await AcquireUntilAsync (std::chrono::system_clock::now () + _span);
 }
-Task<bool> fv::AsyncSemaphore::AcquireUntilAsync (std::chrono::system_clock::time_point _until) {
+Task<bool> AsyncSemaphore::AcquireUntilAsync (std::chrono::system_clock::time_point _until) {
 	while (!m_sp.try_acquire ()) {
 		if (std::chrono::system_clock::now () >= _until)
 			co_return false;
@@ -132,14 +133,14 @@ Task<bool> fv::AsyncSemaphore::AcquireUntilAsync (std::chrono::system_clock::tim
 
 
 
-Task<void> fv::Tasks::Delay (TimeSpan _dt) {
+Task<void> Tasks::Delay (TimeSpan _dt) {
 	boost::asio::steady_timer timer (co_await boost::asio::this_coro::executor);
 	timer.expires_after (_dt);
 	co_await timer.async_wait (use_awaitable);
 }
 
 // 启动异步任务池
-void fv::Tasks::Start (bool _new_thread) {
+void Tasks::Start (bool _new_thread) {
 	::srand ((unsigned int) ::time (NULL));
 	static auto s_func = [] () {
 		m_running.store (true);
@@ -157,14 +158,14 @@ void fv::Tasks::Start (bool _new_thread) {
 }
 
 // 停止异步任务池
-void fv::Tasks::Stop () {
+void Tasks::Stop () {
 	m_run.store (false);
 	while (m_running.load ())
 		std::this_thread::sleep_for (std::chrono::milliseconds (1));
 }
 
-fv::IoContext fv::Tasks::m_ctx { 1 };
-std::atomic_bool fv::Tasks::m_run = true, fv::Tasks::m_running = false;
+IoContext Tasks::m_ctx { 1 };
+std::atomic_bool Tasks::m_run = true, Tasks::m_running = false;
 
 
 
@@ -217,9 +218,9 @@ static std::string random_str (size_t _len) {
 
 
 
-std::string fv::Request::Serilize (Method _method, std::string _host, std::string _path) {
+std::string Request::Serilize (Method _method, std::string _host, std::string _path) {
 	std::stringstream _ss;
-	static std::map<Method, std::string> s_method_names { { Method::Head, "HEAD" }, { Method::Option, "OPTION" }, { Method::Get, "GET" }, { Method::Post, "POST" }, { Method::Put, "PUT" }, { Method::Delete, "DELETE" } };
+	static std::unordered_map<Method, std::string> s_method_names { { Method::Head, "HEAD" }, { Method::Option, "OPTION" }, { Method::Get, "GET" }, { Method::Post, "POST" }, { Method::Put, "PUT" }, { Method::Delete, "DELETE" } };
 	_ss << s_method_names [_method] << " " << _path << " HTTP/1.1\r\n";
 	if (!Headers.contains ("Host"))
 		Headers ["Host"] = _host;
@@ -299,7 +300,7 @@ std::string fv::Request::Serilize (Method _method, std::string _host, std::strin
 
 
 
-bool fv::Request::_content_raw_contains_files () {
+bool Request::_content_raw_contains_files () {
 	for (size_t i = 0; i < ContentRaw.size (); ++i) {
 		if (ContentRaw [i].index () == 1) {
 			return true;
@@ -310,7 +311,7 @@ bool fv::Request::_content_raw_contains_files () {
 
 
 
-Task<fv::Response> fv::Response::GetResponse (std::shared_ptr<IConn> _conn) {
+Task<Response> Response::GetResponse (std::shared_ptr<IConn> _conn) {
 	std::string _line = co_await _conn->ReadLine ();
 	Response _r {};
 	::sscanf_s (_line.data (), "HTTP/%*[0-9.] %d", &_r.HttpCode);
@@ -354,9 +355,19 @@ Task<fv::Response> fv::Response::GetResponse (std::shared_ptr<IConn> _conn) {
 	co_return _r;
 }
 
+Response Response::FromText (std::string _text) {
+	auto _res = Response { .HttpCode = 200, .Content = _text };
+	Response::InitDefaultHeaders (_res.Headers);
+	return _res;
+}
+
+void Response::InitDefaultHeaders (CaseInsensitiveMap &_map) {
+	// TODO
+}
 
 
-Task<char> fv::IConn::ReadChar () {
+
+Task<char> IConn::ReadChar () {
 	if (TmpData.size () == 0) {
 		char _buf [1024];
 		size_t _n = co_await RecvImpl (_buf, sizeof (_buf));
@@ -368,7 +379,7 @@ Task<char> fv::IConn::ReadChar () {
 	co_return _ret;
 }
 
-Task<std::string> fv::IConn::ReadLine () {
+Task<std::string> IConn::ReadLine () {
 	std::string _tmp = "";
 	size_t _p;
 	while ((_p = TmpData.find ('\n')) == std::string::npos) {
@@ -383,7 +394,7 @@ Task<std::string> fv::IConn::ReadLine () {
 	co_return _tmp;
 }
 
-Task<std::string> fv::IConn::ReadCount (size_t _count) {
+Task<std::string> IConn::ReadCount (size_t _count) {
 	std::string _tmp = "";
 	while (TmpData.size () < _count) {
 		char _buf [1024];
@@ -395,16 +406,28 @@ Task<std::string> fv::IConn::ReadCount (size_t _count) {
 	co_return _tmp;
 }
 
-Task<std::vector<uint8_t>> fv::IConn::ReadCountVec (size_t _count) {
+Task<std::vector<uint8_t>> IConn::ReadCountVec (size_t _count) {
 	std::string _tmp = co_await ReadCount (_count);
 	std::vector<uint8_t> _vec;
 	_vec.assign ((uint8_t *) &_tmp [0], (uint8_t *) &_tmp [_count]);
 	co_return _vec;
 }
 
+Task<std::string> IConn::ReadSome () {
+	if (TmpData.size () > 0) {
+		std::string _ret = std::move (TmpData);
+		TmpData = "";
+		co_return _ret;
+	} else {
+		char _buf [1024];
+		size_t _len = co_await RecvImpl (_buf, sizeof (_buf));
+		co_return std::string (_buf, _len);
+	}
+}
 
 
-Task<void> fv::TcpConn::Connect (std::string _host, std::string _port) {
+
+Task<void> TcpConn::Connect (std::string _host, std::string _port) {
 	Close ();
 	std::regex _r { "(\\d+\\.){3}\\d+" };
 	if (std::regex_match (_host, _r)) {
@@ -421,14 +444,14 @@ Task<void> fv::TcpConn::Connect (std::string _host, std::string _port) {
 		Socket.set_option (Tcp::no_delay { true });
 }
 
-void fv::TcpConn::Close () {
+void TcpConn::Close () {
 	if (Socket.is_open ()) {
 		Socket.shutdown (socket_base::shutdown_both);
 		Socket.close ();
 	}
 }
 
-Task<void> fv::TcpConn::Send (char *_data, size_t _size) {
+Task<void> TcpConn::Send (char *_data, size_t _size) {
 	if (!Socket.is_open ())
 		throw Exception ("Cannot send data to a closed connection.");
 	size_t _sended = 0;
@@ -440,21 +463,21 @@ Task<void> fv::TcpConn::Send (char *_data, size_t _size) {
 	}
 }
 
-Task<size_t> fv::TcpConn::RecvImpl (char *_data, size_t _size) {
+Task<size_t> TcpConn::RecvImpl (char *_data, size_t _size) {
 	if (!Socket.is_open ())
 		co_return 0;
 	size_t _count = co_await Socket.async_read_some (boost::asio::buffer (_data, _size), use_awaitable);
 	co_return _count;
 }
 
-void fv::TcpConn::Cancel () {
+void TcpConn::Cancel () {
 	ResolverImpl.cancel ();
 	Socket.cancel ();
 }
 
 
 
-Task<void> fv::SslConn::Connect (std::string _host, std::string _port) {
+Task<void> SslConn::Connect (std::string _host, std::string _port) {
 	Close ();
 	SslSocket.set_verify_mode (Ssl::verify_peer);
 	SslSocket.set_verify_callback (Config::SslVerifyFunc);
@@ -474,14 +497,14 @@ Task<void> fv::SslConn::Connect (std::string _host, std::string _port) {
 	co_await SslSocket.async_handshake (Ssl::stream_base::client, use_awaitable);
 }
 
-void fv::SslConn::Close () {
+void SslConn::Close () {
 	if (SslSocket.next_layer ().is_open ()) {
 		SslSocket.next_layer ().shutdown (socket_base::shutdown_both);
 		SslSocket.next_layer ().close ();
 	}
 }
 
-Task<void> fv::SslConn::Send (char *_data, size_t _size) {
+Task<void> SslConn::Send (char *_data, size_t _size) {
 	if (!SslSocket.next_layer ().is_open ())
 		throw Exception ("Cannot send data to a closed connection.");
 	size_t _sended = 0;
@@ -493,18 +516,18 @@ Task<void> fv::SslConn::Send (char *_data, size_t _size) {
 	}
 }
 
-Task<size_t> fv::SslConn::RecvImpl (char *_data, size_t _size) {
+Task<size_t> SslConn::RecvImpl (char *_data, size_t _size) {
 	co_return co_await SslSocket.async_read_some (boost::asio::buffer (_data, _size), use_awaitable);
 }
 
-void fv::SslConn::Cancel () {
+void SslConn::Cancel () {
 	ResolverImpl.cancel ();
 	SslSocket.next_layer ().cancel ();
 }
 
 
 
-Task<std::tuple<std::string, fv::WsType>> fv::WsConn::Recv () {
+Task<std::tuple<std::string, WsType>> WsConn::Recv () {
 	std::vector<uint8_t> _tmp = co_await Parent->ReadCountVec (2);
 	bool _is_eof = (_tmp [0] & 0x80) != 0;
 	WsType _type = (WsType) (_tmp [0] & 0xf);
@@ -549,7 +572,7 @@ Task<std::tuple<std::string, fv::WsType>> fv::WsConn::Recv () {
 	co_return std::make_tuple (std::string (""), WsType::Close);
 }
 
-Task<void> fv::WsConn::_Send (char *_data, size_t _size, WsType _type) {
+Task<void> WsConn::_Send (char *_data, size_t _size, WsType _type) {
 	if (!IsConnect ()) {
 		if (_type == WsType::Close)
 			co_return;
@@ -590,7 +613,7 @@ Task<void> fv::WsConn::_Send (char *_data, size_t _size, WsType _type) {
 
 
 
-Task<std::shared_ptr<fv::IConn>> fv::Connect (std::string _url) {
+Task<std::shared_ptr<IConn>> Connect (std::string _url) {
 	auto [_schema, _host, _port, _path] = _parse_url (_url);
 	//
 	if (_schema == "tcp") {
@@ -604,12 +627,12 @@ Task<std::shared_ptr<fv::IConn>> fv::Connect (std::string _url) {
 	}
 }
 
-Task<std::shared_ptr<fv::WsConn>> fv::ConnectWS (std::string _url) {
+Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url) {
 	auto [_schema, _host, _port, _path] = _parse_url (_url);
 	if (_schema == "ws" || _schema == "wss") {
 		// connect
 		auto _conn = std::shared_ptr<IConn> (_schema == "ws" ?
-			(IConn*) new TcpConn { Tasks::GetContext () } :
+			(IConn *) new TcpConn { Tasks::GetContext () } :
 			new SslConn { Tasks::GetContext () });
 		co_await _conn->Connect (_host, _port);
 
@@ -632,19 +655,19 @@ Task<std::shared_ptr<fv::WsConn>> fv::ConnectWS (std::string _url) {
 
 
 
-fv::timeout::timeout (TimeSpan _exp): m_exp (_exp) {}
-fv::server::server (std::string _ip): m_ip (_ip) {}
-fv::header::header (std::string _key, std::string _value): m_key (_key), m_value (_value) {}
-fv::authorization::authorization (std::string _auth): m_auth (_auth) {}
-fv::authorization::authorization (std::string _uid, std::string _pwd): m_auth (std::format ("Basic {}", base64_encode (std::format ("{}:{}", _uid, _pwd)))) {}
-fv::connection::connection (std::string _co): m_co (_co) {}
-fv::content_type::content_type (std::string _ct): m_ct (_ct) {}
-fv::referer::referer (std::string _r): m_r (_r) {}
-fv::user_agent::user_agent (std::string _ua): m_ua (_ua) {}
+timeout::timeout (TimeSpan _exp): m_exp (_exp) {}
+server::server (std::string _ip) : m_ip (_ip) {}
+header::header (std::string _key, std::string _value) : m_key (_key), m_value (_value) {}
+authorization::authorization (std::string _auth) : m_auth (_auth) {}
+authorization::authorization (std::string _uid, std::string _pwd) : m_auth (std::format ("Basic {}", base64_encode (std::format ("{}:{}", _uid, _pwd)))) {}
+connection::connection (std::string _co) : m_co (_co) {}
+content_type::content_type (std::string _ct) : m_ct (_ct) {}
+referer::referer (std::string _r) : m_r (_r) {}
+user_agent::user_agent (std::string _ua) : m_ua (_ua) {}
 
 
 
-Task<fv::Response> fv::DoMethod (Request _r, Method _method) {
+Task<Response> DoMethod (Request _r, Method _method) {
 	auto [_schema, _host, _port, _path] = _parse_url (_r.Url);
 	std::shared_ptr<IConn> _conn;
 	if (_schema == "https") {
@@ -672,6 +695,7 @@ Task<fv::Response> fv::DoMethod (Request _r, Method _method) {
 
 	// recv
 	co_return co_await Response::GetResponse (_conn);
+}
 }
 
 

@@ -1,6 +1,6 @@
 ﻿# libfv
 
-libfv 是 C++20 纯头文件异步库，支持 TCP、SSL、Http1.1、websocket
+libfv 是 C++20 纯头文件网络库，支持 TCP、SSL、Http1.1、websocket
 
 你可以通过它使用纯异步的网络功能，当然你也能完全不使用网络，仅使用异步包装功能，让你的项目支持异步开发。
 

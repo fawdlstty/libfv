@@ -218,9 +218,28 @@ static std::string random_str (size_t _len) {
 
 
 
-std::string Request::Serilize (Method _method, std::string _host, std::string _path) {
+Task<Request> Request::GetFromConn (std::shared_ptr<IConn> _conn) {
+	std::string _line = co_await _conn->ReadLine ();
+	size_t _p = _line.find (' ');
+	static std::unordered_map<std::string, MethodType> s_method_vals { { "HEAD", MethodType::Head }, { "OPTION", MethodType::Option }, { "GET", MethodType::Get }, { "POST", MethodType::Post }, { "PUT", MethodType::Put }, { "DELETE", MethodType::Delete } };
+	std::string _tmp = _p != std::string::npos ? _line.substr (0, _p) : "";
+	if (!s_method_vals.contains (_tmp))
+		throw Exception ("Unrecognized request type");
+	Request _r {};
+	_r.Schema = dynamic_cast<SslConn *> (_conn.get ()) ? "https" : "http";
+	// TODO ws/wss
+	_r.Method = s_method_vals [_tmp];
+	_line = _line.erase (0, _p + 1);
+	_p = _line.find (' ');
+	if (_p == std::string::npos)
+		throw Exception ("Unrecognized request path");
+	//TODO
+	co_return _r;
+}
+
+std::string Request::Serilize (MethodType _method, std::string _host, std::string _path) {
 	std::stringstream _ss;
-	static std::unordered_map<Method, std::string> s_method_names { { Method::Head, "HEAD" }, { Method::Option, "OPTION" }, { Method::Get, "GET" }, { Method::Post, "POST" }, { Method::Put, "PUT" }, { Method::Delete, "DELETE" } };
+	static std::unordered_map<MethodType, std::string> s_method_names { { MethodType::Head, "HEAD" }, { MethodType::Option, "OPTION" }, { MethodType::Get, "GET" }, { MethodType::Post, "POST" }, { MethodType::Put, "PUT" }, { MethodType::Delete, "DELETE" } };
 	_ss << s_method_names [_method] << " " << _path << " HTTP/1.1\r\n";
 	if (!Headers.contains ("Host"))
 		Headers ["Host"] = _host;
@@ -311,7 +330,7 @@ bool Request::_content_raw_contains_files () {
 
 
 
-Task<Response> Response::GetResponse (std::shared_ptr<IConn> _conn) {
+Task<Response> Response::GetFromConn (std::shared_ptr<IConn> _conn) {
 	std::string _line = co_await _conn->ReadLine ();
 	Response _r {};
 	::sscanf_s (_line.data (), "HTTP/%*[0-9.] %d", &_r.HttpCode);
@@ -640,13 +659,13 @@ Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url) {
 		Request _r { .Url = _url };
 		_OptionApplys (_r, header ("Pragma", "no-cache"), connection ("Upgrade"), header ("Upgrade", "websocket"),
 			header ("Sec-WebSocket-Version", "13"), header ("Sec-WebSocket-Key", "libfvlibfv=="));
-		std::string _data = _r.Serilize (Method::Get, _host, _path);
+		std::string _data = _r.Serilize (MethodType::Get, _host, _path);
 
 		// send
 		co_await _conn->Send (_data.data (), _data.size ());
 
 		// recv
-		co_await Response::GetResponse (_conn);
+		co_await Response::GetFromConn (_conn);
 		co_return std::make_shared<WsConn> (_conn);
 	} else {
 		throw Exception ("δ֪Э�飺{}", _schema);
@@ -667,8 +686,10 @@ user_agent::user_agent (std::string _ua) : m_ua (_ua) {}
 
 
 
-Task<Response> DoMethod (Request _r, Method _method) {
+Task<Response> DoMethod (Request _r) {
 	auto [_schema, _host, _port, _path] = _parse_url (_r.Url);
+	_r.Schema = _schema;
+	_r.UrlPath = _path;
 	std::shared_ptr<IConn> _conn;
 	if (_schema == "https") {
 		_conn = std::shared_ptr<IConn> (new SslConn { Tasks::GetContext () });
@@ -688,13 +709,13 @@ Task<Response> DoMethod (Request _r, Method _method) {
 	co_await _conn->Connect (_r.Server != "" ? _r.Server : _host, _port);
 
 	// generate data
-	std::string _data = _r.Serilize (_method, _host, _path);
+	std::string _data = _r.Serilize (_r.Method, _host, _path);
 
 	// send
 	co_await _conn->Send (_data.data (), _data.size ());
 
 	// recv
-	co_return co_await Response::GetResponse (_conn);
+	co_return co_await Response::GetFromConn (_conn);
 }
 }
 

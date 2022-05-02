@@ -64,6 +64,9 @@ fv::Config::SslVerifyFunc = [] (bool preverified, fv::Ssl::verify_context &ctx) 
 
 // 设置全局TCP不延迟发送（对实时性要求较高场合使用）
 fv::Config::NoDelay = true;
+
+// 设置全局 http 头（客户端）
+fv::Request::SetDefaultHeader ("User-Agent", "libfv-0.0.1");
 ```
 
 ### HTTP(S) Client

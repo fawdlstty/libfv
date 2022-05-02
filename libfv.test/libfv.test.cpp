@@ -23,8 +23,45 @@ using boost::asio::use_awaitable;
 using namespace fv;
 
 struct TcpServer {
-	void SetOnConnect (std::function<Task<int64_t> (std::shared_ptr<IConn>)> _on_connect) { OnConnect = _on_connect; }
-	void SetOnRecv (std::function<Task<void> (int64_t, std::string)> _on_recv) { OnRecv = _on_recv; }
+	void SetOnConnect (std::function<Task<void> (std::shared_ptr<IConn>)> _on_connect) { OnConnect = _on_connect; }
+	void RegisterClient (int64_t _id, std::shared_ptr<IConn> _conn) {
+		std::unique_lock _ul { Mutex };
+		Clients [_id] = _conn;
+	}
+	void UnregisterClient (int64_t _id, std::shared_ptr<IConn> _conn) {
+		std::unique_lock _ul { Mutex };
+		if (Clients [_id].get () == _conn.get ())
+			Clients.erase (_id);
+	}
+	Task<bool> SendData (int64_t _id, char *_data, size_t _size) {
+		try {
+			std::unique_lock _ul { Mutex };
+			if (Clients.contains (_id)) {
+				auto _conn = Clients [_id];
+				_ul.unlock ();
+				co_await Clients [_id]->Send (_data, _size);
+				co_return true;
+			}
+		} catch (...) {
+		}
+		co_return false;
+	}
+	Task<size_t> BroadcastData (char *_data, size_t _size) {
+		std::unique_lock _ul { Mutex };
+		std::unordered_set<std::shared_ptr<IConn>> _conns;
+		for (auto [_key, _val] : Clients)
+			_conns.emplace (_val);
+		_ul.unlock ();
+		size_t _count = 0;
+		for (auto _conn : _conns) {
+			try {
+				co_await _conn->Send (_data, _size);
+				_count++;
+			} catch (...) {
+			}
+		}
+		co_return _count;
+	}
 
 	Task<void> Run (uint16_t _port) {
 		if (IsRun.load ())
@@ -36,35 +73,10 @@ struct TcpServer {
 			for (; IsRun.load ();) {
 				std::shared_ptr<IConn> _conn = std::shared_ptr<IConn> ((IConn *) new TcpConn2 (co_await Acceptor->async_accept (use_awaitable)));
 				Tasks::RunAsync ([this, _conn] () -> Task<void> {
-					std::unique_lock _ul { Mutex, std::defer_lock };
-					TcpConn2 *_raw_conn = (TcpConn2 *) _conn.get ();
-					int64_t _id = -1;
 					try {
-						_id = co_await OnConnect (_conn);
-						_raw_conn->Id = _id;
-						_ul.lock ();
-						if (Clients.contains (_id)) {
-							auto _last_conn = Clients [_id];
-							Clients [_id] = _conn;
-							_ul.unlock ();
-							_last_conn->Cancel ();
-						} else {
-							Clients [_id] = _conn;
-							_ul.unlock ();
-						}
-
-						while (true) {
-							std::string _data = co_await _conn->ReadSome ();
-							co_await OnRecv (_id, std::move (_data));
-						}
+						co_await OnConnect (_conn);
 					} catch (...) {
 					}
-					_ul.lock ();
-					if (Clients.contains (_id)) {
-						if (Clients [_id].get () == _raw_conn)
-							Clients.erase (_id);
-					}
-					_ul.unlock ();
 				});
 			}
 		} catch (...) {
@@ -78,8 +90,7 @@ struct TcpServer {
 	}
 
 private:
-	std::function<Task<int64_t> (std::shared_ptr<IConn>)> OnConnect;
-	std::function<Task<void> (int64_t, std::string)> OnRecv;
+	std::function<Task<void> (std::shared_ptr<IConn>)> OnConnect;
 	std::mutex Mutex;
 	std::unordered_map<int64_t, std::shared_ptr<IConn>> Clients;
 

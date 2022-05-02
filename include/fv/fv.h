@@ -32,7 +32,7 @@ using IoContext = boost::asio::io_context;
 using TimeSpan = std::chrono::system_clock::duration;
 using SslCheckCb = std::function<bool (bool, Ssl::verify_context &)>;
 
-enum class Method { Head, Option, Get, Post, Put, Delete };
+enum class MethodType { Head, Option, Get, Post, Put, Delete };
 
 struct CaseInsensitiveHash { size_t operator() (const std::string &str) const noexcept; };
 struct CaseInsensitiveEqual { bool operator() (const std::string &str1, const std::string &str2) const noexcept; };
@@ -162,20 +162,26 @@ struct body_raw {
 
 
 
+struct IConn;
+
 struct Request {
 	TimeSpan Timeout = std::chrono::seconds (0);
 	std::string Server = "";
 	//
 	std::string Url = "";
+	MethodType Method = MethodType::Get;
+	std::string Schema = "";
+	std::string UrlPath = "";
 	std::string Content = "";
 	std::vector<std::variant<body_kv, body_file>> ContentRaw;
 	CaseInsensitiveMap Headers = DefaultHeaders ();
 	std::unordered_map<std::string, std::string> Cookies;
 
+	static Task<Request> GetFromConn (std::shared_ptr<IConn> _conn);
 	static CaseInsensitiveMap DefaultHeaders () { return m_def_headers; }
 	static void SetDefaultHeader (std::string _key, std::string _value) { m_def_headers [_key] = _value; }
 
-	std::string Serilize (Method _method, std::string _host, std::string _path);
+	std::string Serilize (MethodType _method, std::string _host, std::string _path);
 
 private:
 	bool _content_raw_contains_files ();
@@ -185,13 +191,12 @@ private:
 
 
 
-struct IConn;
 struct Response {
 	int HttpCode = -1;
 	std::string Content = "";
 	CaseInsensitiveMap Headers;
 
-	static Task<Response> GetResponse (std::shared_ptr<IConn> _conn);
+	static Task<Response> GetFromConn (std::shared_ptr<IConn> _conn);
 	static Response FromText (std::string _text);
 
 private:
@@ -340,71 +345,71 @@ inline void _OptionApplys (Request &_r, _Op1 _op1, _Ops ..._ops) { _OptionApply 
 
 
 
-Task<Response> DoMethod (Request _r, Method _method);
+Task<Response> DoMethod (Request _r);
 inline Task<Response> Head (std::string _url) {
-	co_return co_await DoMethod (Request { .Url = _url }, Method::Head);
+	co_return co_await DoMethod (Request { .Url = _url, .Method = MethodType::Head });
 }
 template<TOption ..._Ops>
 inline Task<Response> Head (std::string _url, _Ops ..._ops) {
-	Request _r { .Url = _url };
+	Request _r { .Url = _url, .Method = MethodType::Head };
 	_OptionApplys (_r, _ops...);
-	co_return co_await DoMethod (_r, Method::Head);
+	co_return co_await DoMethod (_r);
 }
 inline Task<Response> Option (std::string _url) {
-	co_return co_await DoMethod (Request { .Url = _url }, Method::Option);
+	co_return co_await DoMethod (Request { .Url = _url, .Method = MethodType::Option });
 }
 template<TOption ..._Ops>
 inline Task<Response> Option (std::string _url, _Ops ..._ops) {
-	Request _r { .Url = _url };
+	Request _r { .Url = _url, .Method = MethodType::Option };
 	_OptionApplys (_r, _ops...);
-	co_return co_await DoMethod (_r, Method::Option);
+	co_return co_await DoMethod (_r);
 }
 inline Task<Response> Get (std::string _url) {
-	co_return co_await DoMethod (Request { .Url = _url }, Method::Get);
+	co_return co_await DoMethod (Request { .Url = _url, .Method = MethodType::Get });
 }
 template<TOption ..._Ops>
 inline Task<Response> Get (std::string _url, _Ops ..._ops) {
-	Request _r { .Url = _url };
+	Request _r { .Url = _url, .Method = MethodType::Get };
 	_OptionApplys (_r, _ops...);
-	co_return co_await DoMethod (_r, Method::Get);
+	co_return co_await DoMethod (_r);
 }
 template<TFormOption ..._Ops>
 inline Task<Response> Post (std::string _url, _Ops ..._ops) {
-	Request _r { .Url = _url };
+	Request _r { .Url = _url, .Method = MethodType::Post };
 	_OptionApplys (_r, _ops...);
-	co_return co_await DoMethod (_r, Method::Post);
+	co_return co_await DoMethod (_r);
 }
 template<TOption ..._Ops>
 inline Task<Response> Post (std::string _url, body_raw _data, _Ops ..._ops) {
-	Request _r { .Url = _url, .Content = _data };
+	Request _r { .Url = _url, .Method = MethodType::Post, .Content = _data };
 	_r.Headers ["Content-Type"] = _data.ContentType;
 	_r.Content = _data.Content;
 	_OptionApplys (_r, _ops...);
-	co_return co_await DoMethod (_r, Method::Post);
+	co_return co_await DoMethod (_r);
 }
 template<TFormOption ..._Ops>
 inline Task<Response> Put (std::string _url, _Ops ..._ops) {
-	Request _r { .Url = _url };
+	Request _r { .Url = _url, .Method = MethodType::Put };
 	_OptionApplys (_r, _ops...);
-	co_return co_await DoMethod (_r, Method::Put);
+	co_return co_await DoMethod (_r);
 }
 template<TOption ..._Ops>
 inline Task<Response> Put (std::string _url, body_raw _data, _Ops ..._ops) {
-	Request _r { .Url = _url, .Content = _data };
+	Request _r { .Url = _url, .Method = MethodType::Put, .Content = _data };
 	_r.Headers ["Content-Type"] = _data.ContentType;
 	_r.Content = _data.Content;
 	_OptionApplys (_r, _ops...);
-	co_return co_await DoMethod (_r, Method::Put);
+	co_return co_await DoMethod (_r);
 }
 template<TFormOption ..._Ops>
 inline Task<Response> Delete (std::string _url) {
-	co_return co_await DoMethod (Request { .Url = _url }, Method::Delete);
+	co_return co_await DoMethod (Request { .Url = _url, .Method = MethodType::Delete });
 }
 template<TOption ..._Ops>
 inline Task<Response> Delete (std::string _url, _Ops ..._ops) {
-	Request _r { .Url = _url };
+	Request _r { .Url = _url, .Method = MethodType::Delete };
 	_OptionApplys (_r, _ops...);
-	co_return co_await DoMethod (_r, Method::Delete);
+	co_return co_await DoMethod (_r);
 }
 }
 

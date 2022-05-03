@@ -5,6 +5,7 @@
 
 #include "fv.h"
 
+#include <format>
 #include <regex>
 #include <sstream>
 
@@ -107,6 +108,23 @@ std::string percent_str_encode (std::string_view data) {
 	}
 	return ret;
 }
+
+static std::string _trim (std::string _s) {
+	size_t _start = 0, _stop = _s.size ();
+	while (_start < _stop) {
+		char _ch = _s [_start];
+		if (_ch != ' ' && _ch != '　' && _ch != '\r')
+			break;
+		_start++;
+	}
+	while (_start < _stop) {
+		char _ch = _s [_stop - 1];
+		if (_ch != ' ' && _ch != '　' && _ch != '\r')
+			break;
+		_stop--;
+	}
+	return _s.substr (_start, _stop - _start);
+};
 
 
 
@@ -218,7 +236,7 @@ static std::string random_str (size_t _len) {
 
 
 
-Task<Request> Request::GetFromConn (std::shared_ptr<IConn> _conn) {
+Task<Request> Request::GetFromConn (std::shared_ptr<IConn> _conn, uint16_t _listen_port) {
 	std::string _line = co_await _conn->ReadLine ();
 	size_t _p = _line.find (' ');
 	static std::unordered_map<std::string, MethodType> s_method_vals { { "HEAD", MethodType::Head }, { "OPTION", MethodType::Option }, { "GET", MethodType::Get }, { "POST", MethodType::Post }, { "PUT", MethodType::Put }, { "DELETE", MethodType::Delete } };
@@ -227,13 +245,30 @@ Task<Request> Request::GetFromConn (std::shared_ptr<IConn> _conn) {
 		throw Exception ("Unrecognized request type");
 	Request _r {};
 	_r.Schema = dynamic_cast<SslConn *> (_conn.get ()) ? "https" : "http";
-	// TODO ws/wss
 	_r.Method = s_method_vals [_tmp];
 	_line = _line.erase (0, _p + 1);
 	_p = _line.find (' ');
 	if (_p == std::string::npos)
 		throw Exception ("Unrecognized request path");
-	//TODO
+	_r.UrlPath = _line.substr (0, _p);
+	while ((_line = co_await _conn->ReadLine ()) != "") {
+		size_t _p = _line.find (':');
+		std::string _key = _trim (_line.substr (0, _p));
+		std::string _value = _trim (_line.substr (_p + 1));
+		_r.Headers [_key] = _value;
+	}
+	_tmp = _r.Headers ["Connection"];
+	std::transform (_tmp.begin (), _tmp.end (), _tmp.begin (), ::tolower);
+	if (_tmp == "upgrade")
+		_r.Schema = _r.Schema == "https" ? "wss" : "ws";
+	std::string _port = "";
+	if (!((_listen_port == 80 && (_r.Schema == "http" || _r.Schema == "ws")) || (_listen_port == 443 && (_r.Schema == "https" || _r.Schema == "wss"))))
+		_port = std::format (":{}", _listen_port);
+	_r.Url = std::format ("{}://{}{}{}", _r.Schema, _r.Headers ["Host"], _port, _r.UrlPath);
+	if (_r.Headers.contains ("Content-Length")) {
+		size_t _p = std::stoi (_r.Headers ["Content-Length"]);
+		_r.Content = co_await _conn->ReadCount (_p);
+	}
 	co_return _r;
 }
 
@@ -336,22 +371,6 @@ Task<Response> Response::GetFromConn (std::shared_ptr<IConn> _conn) {
 	::sscanf_s (_line.data (), "HTTP/%*[0-9.] %d", &_r.HttpCode);
 	if (_r.HttpCode == -1)
 		throw Exception ("无法解析的标识：{}", _line);
-	static std::function<std::string (std::string)> _trim = [] (std::string _s) {
-		size_t _start = 0, _stop = _s.size ();
-		while (_start < _stop) {
-			char _ch = _s [_start];
-			if (_ch != ' ' && _ch != '　' && _ch != '\r')
-				break;
-			_start++;
-		}
-		while (_start < _stop) {
-			char _ch = _s [_stop - 1];
-			if (_ch != ' ' && _ch != '　' && _ch != '\r')
-				break;
-			_stop--;
-		}
-		return _s.substr (_start, _stop - _start);
-	};
 	while ((_line = co_await _conn->ReadLine ()) != "") {
 		size_t _p = _line.find (':');
 		std::string _key = _trim (_line.substr (0, _p));
@@ -378,6 +397,29 @@ Response Response::FromText (std::string _text) {
 	auto _res = Response { .HttpCode = 200, .Content = _text };
 	Response::InitDefaultHeaders (_res.Headers);
 	return _res;
+}
+
+std::string Response::Serilize () {
+	std::string _cnt = Content;
+	if (_cnt.size () > 0) {
+		std::string _cnt_enc = Headers ["Content-Encoding"];
+		std::transform (_cnt_enc.begin (), _cnt_enc.end (), _cnt_enc.begin (), ::tolower);
+		if (_cnt_enc == "gzip") {
+			_cnt = gzip::compress (_cnt.data (), _cnt.size ());
+		} else if (_cnt_enc != "") {
+			throw Exception (std::format ("Unrecognized content encoding type [{}]", _cnt_enc));
+		}
+		Headers ["Content-Length"] = std::format ("{}", _cnt.size ());
+	}
+
+	std::stringstream _ss;
+	std::unordered_map<int, std::string> s_httpcode { { 100, "Continue" }, { 101, "Switching Protocols" }, { 200, "OK" }, { 201, "Created" }, { 202, "Accepted" }, { 203, "Non-Authoritative Information" }, { 204, "No Content" }, { 205, "Reset Content" }, { 206, "Partial Content" }, { 300, "Multiple Choices" }, { 301, "Moved Permanently" }, { 302, "Found" }, { 303, "See Other" }, { 304, "Not Modified" }, { 305, "Use Proxy" }, { 306, "Unused" }, { 307, "Temporary Redirect" }, { 400, "Bad Request" }, { 401, "Unauthorized" }, { 402, "Payment Required" }, { 403, "Forbidden" }, { 404, "Not Found" }, { 405, "Method Not Allowed" }, { 406, "Not Acceptable" }, { 407, "Proxy Authentication Required" }, { 408, "Request Time-out" }, { 409, "Conflict" }, { 410, "Gone" }, { 411, "Length Required" }, { 412, "Precondition Failed" }, { 413, "Request Entity Too Large" }, { 414, "Request-URI Too Large" }, { 415, "Unsupported Media Type" }, { 416, "Requested range not satisfiable" }, { 417, "Expectation Failed" }, { 500, "Internal Server Error" }, { 501, "Not Implemented" }, { 502, "Bad Gateway" }, { 503, "Service Unavailable" }, { 504, "Gateway Time-out" }, { 505, "HTTP Version not supported" } };
+	_ss << std::format ("HTTP/1.1 {} {}\r\n", HttpCode, s_httpcode.contains (HttpCode) ? s_httpcode [HttpCode] : "Unknown");
+	for (auto [_key, _val] : Headers)
+		_ss << _key << ": " << _val << "\r\n";
+	_ss << "\r\n";
+	_ss << _cnt;
+	return _ss.str ();
 }
 
 void Response::InitDefaultHeaders (CaseInsensitiveMap &_map) {

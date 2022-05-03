@@ -177,7 +177,7 @@ struct Request {
 	CaseInsensitiveMap Headers = DefaultHeaders ();
 	std::unordered_map<std::string, std::string> Cookies;
 
-	static Task<Request> GetFromConn (std::shared_ptr<IConn> _conn);
+	static Task<Request> GetFromConn (std::shared_ptr<IConn> _conn, uint16_t _listen_port);
 	static CaseInsensitiveMap DefaultHeaders () { return m_def_headers; }
 	static void SetDefaultHeader (std::string _key, std::string _value) { m_def_headers [_key] = _value; }
 
@@ -198,6 +198,8 @@ struct Response {
 
 	static Task<Response> GetFromConn (std::shared_ptr<IConn> _conn);
 	static Response FromText (std::string _text);
+
+	std::string Serilize ();
 
 private:
 	static void InitDefaultHeaders (CaseInsensitiveMap &_map);

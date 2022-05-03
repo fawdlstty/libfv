@@ -103,10 +103,31 @@ struct HttpServer {
 	void OnRequest (std::string _path, std::function<Task<fv::Response> (fv::Request&)> _cb) { m_map_proc [_path] = _cb; }
 	void OnAfter (std::function<Task<void> (fv::Request&, fv::Response&)> _cb) { m_after = _cb; }
 
-	
+	Task<void> Run (uint16_t _port) {
+		m_tcpserver.SetOnConnect ([this, _port] (std::shared_ptr<IConn> _conn) -> Task<void> {
+			while (true) {
+				auto _req = co_await Request::GetFromConn (_conn, _port);
+				if (m_before) {
+					auto _ores = co_await m_before (_req);
+					if (_ores.has_value ()) {
+						std::string _res = _ores.value ().Serilize ();
+						co_await _conn->Send (_res.data (), _res.size ());
+						continue;
+					}
+				}
+				// TODO
+			}
+		});
+		co_await m_tcpserver.Run (_port);
+	}
+
+	void Stop () {
+		m_tcpserver.Stop ();
+	}
 
 private:
 
+	TcpServer m_tcpserver {};
 	std::function<Task<std::optional<fv::Response>> (fv::Request &)> m_before;
 	std::unordered_map<std::string, std::function<Task<fv::Response> (fv::Request &)>> m_map_proc;
 	std::function<Task<void> (fv::Request &, fv::Response &)> m_after;

@@ -162,6 +162,12 @@ co_await _conn->Send (_str.data (), _str.size ());
 co_await _conn->Close ();
 ```
 
+### HTTP(S) Server (WIP)
+
+```cpp
+// TODO
+```
+
 ## 附带的其他异步功能
 
 ```cpp
@@ -193,7 +199,7 @@ _sema.Release ();
 - [ ] UDP Client
 - [ ] Cancellation
 - [ ] Dns Cache
-- [ ] HTTP(S) Server
+- [x] HTTP(S) Server (WIP)
 - [ ] TCP Server
 - [ ] SSL Server
 - [ ] Websocket Server

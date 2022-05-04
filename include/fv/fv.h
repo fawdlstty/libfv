@@ -197,6 +197,7 @@ struct Response {
 	CaseInsensitiveMap Headers;
 
 	static Task<Response> GetFromConn (std::shared_ptr<IConn> _conn);
+	static Response FromNotFound ();
 	static Response FromText (std::string _text);
 
 	std::string Serilize ();
@@ -252,14 +253,14 @@ struct TcpConn2: public IConn {
 	Tcp::socket Socket;
 	int64_t Id = -1;
 
-	TcpConn2 (Tcp::socket _sock): Socket (std::move (_sock)) { if (Config::NoDelay) Socket.set_option (Tcp::no_delay { true }); }
+	TcpConn2 (Tcp::socket _sock);
 
 	virtual ~TcpConn2 () { Cancel (); Close (); }
-	Task<void> Connect (std::string _host, std::string _port) override;
+	Task<void> Connect (std::string _host, std::string _port) { throw Exception ("Cannot use connect from TcpConn2 class"); }
 	bool IsConnect () override { return Socket.is_open (); }
 	void Close () override;
 	Task<void> Send (char *_data, size_t _size) override;
-	void Cancel () override;
+	void Cancel () override { Socket.cancel (); }
 
 protected:
 	Task<size_t> RecvImpl (char *_data, size_t _size) override;

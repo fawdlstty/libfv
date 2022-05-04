@@ -393,6 +393,12 @@ Task<Response> Response::GetFromConn (std::shared_ptr<IConn> _conn) {
 	co_return _r;
 }
 
+Response Response::FromNotFound () {
+	auto _res = Response { .HttpCode = 404, .Content = "404 Not Found" };
+	Response::InitDefaultHeaders (_res.Headers);
+	return _res;
+}
+
 Response Response::FromText (std::string _text) {
 	auto _res = Response { .HttpCode = 200, .Content = _text };
 	Response::InitDefaultHeaders (_res.Headers);
@@ -534,6 +540,39 @@ Task<size_t> TcpConn::RecvImpl (char *_data, size_t _size) {
 void TcpConn::Cancel () {
 	ResolverImpl.cancel ();
 	Socket.cancel ();
+}
+
+
+
+TcpConn2::TcpConn2 (Tcp::socket _sock): Socket (std::move (_sock)) {
+	if (Config::NoDelay)
+		Socket.set_option (Tcp::no_delay { true });
+}
+
+void TcpConn2::Close () {
+	if (Socket.is_open ()) {
+		Socket.shutdown (socket_base::shutdown_both);
+		Socket.close ();
+	}
+}
+
+Task<void> TcpConn2::Send (char *_data, size_t _size) {
+	if (!Socket.is_open ())
+		throw Exception ("Cannot send data to a closed connection.");
+	size_t _sended = 0;
+	while (_sended < _size) {
+		size_t _tmp_send = co_await Socket.async_send (boost::asio::buffer (&_data [_sended], _size - _sended), use_awaitable);
+		if (_tmp_send == 0)
+			throw Exception ("Connection temp closed.");
+		_sended += _tmp_send;
+	}
+}
+
+Task<size_t> TcpConn2::RecvImpl (char *_data, size_t _size) {
+	if (!Socket.is_open ())
+		co_return 0;
+	size_t _count = co_await Socket.async_read_some (boost::asio::buffer (_data, _size), use_awaitable);
+	co_return _count;
 }
 
 

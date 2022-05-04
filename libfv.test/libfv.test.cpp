@@ -101,21 +101,28 @@ private:
 struct HttpServer {
 	void OnBefore (std::function<Task<std::optional<fv::Response>> (fv::Request&)> _cb) { m_before = _cb; }
 	void OnRequest (std::string _path, std::function<Task<fv::Response> (fv::Request&)> _cb) { m_map_proc [_path] = _cb; }
+	void OnUnhandled (std::function<Task<fv::Response> (fv::Request&)> _cb) { m_unhandled_proc = _cb; }
 	void OnAfter (std::function<Task<void> (fv::Request&, fv::Response&)> _cb) { m_after = _cb; }
 
 	Task<void> Run (uint16_t _port) {
 		m_tcpserver.SetOnConnect ([this, _port] (std::shared_ptr<IConn> _conn) -> Task<void> {
 			while (true) {
-				auto _req = co_await Request::GetFromConn (_conn, _port);
+				Request _req = co_await Request::GetFromConn (_conn, _port);
 				if (m_before) {
-					auto _ores = co_await m_before (_req);
+					std::optional<Response> _ores = co_await m_before (_req);
 					if (_ores.has_value ()) {
-						std::string _res = _ores.value ().Serilize ();
-						co_await _conn->Send (_res.data (), _res.size ());
+						if (m_after)
+							co_await m_after (_req, _ores.value ());
+						std::string _str_res = _ores.value ().Serilize ();
+						co_await _conn->Send (_str_res.data (), _str_res.size ());
 						continue;
 					}
 				}
-				// TODO
+				Response _res = co_await (m_map_proc.contains (_req.UrlPath) ? m_map_proc [_req.UrlPath] (_req) : m_unhandled_proc (_req));
+				if (m_after)
+					co_await m_after (_req, _res);
+				std::string _str_res = _res.Serilize ();
+				co_await _conn->Send (_str_res.data (), _str_res.size ());
 			}
 		});
 		co_await m_tcpserver.Run (_port);
@@ -126,36 +133,38 @@ struct HttpServer {
 	}
 
 private:
-
 	TcpServer m_tcpserver {};
-	std::function<Task<std::optional<fv::Response>> (fv::Request &)> m_before;
-	std::unordered_map<std::string, std::function<Task<fv::Response> (fv::Request &)>> m_map_proc;
-	std::function<Task<void> (fv::Request &, fv::Response &)> m_after;
+	std::function<Task<std::optional<Response>> (Request &)> m_before;
+	std::unordered_map<std::string, std::function<Task<Response> (Request &)>> m_map_proc;
+	std::function<Task<Response> (Request &)> m_unhandled_proc = [] (Request &) -> Task<Response> { co_return Response::FromNotFound (); };
+	std::function<Task<void> (Request &, Response &)> m_after;
 };
 
 Task<void> run_server () {
 	HttpServer _server {};
-	_server.OnBefore ([] (fv::Request &_req) -> Task<std::optional<fv::Response>> {
-		if (_req.Url == "http://127.0.0.1/haha") {
-			co_return fv::Response::FromText ("hello");
-		} else {
-			co_return std::nullopt;
-		}
-	});
-	_server.OnAfter ([] (fv::Request &_req, fv::Response &_res) -> Task<void> {
-		// TODO
-		co_return;
-	});
+	//_server.OnBefore ([] (fv::Request &_req) -> Task<std::optional<fv::Response>> {
+	//	if (_req.Url == "http://127.0.0.1/haha") {
+	//		co_return fv::Response::FromText ("hello");
+	//	} else {
+	//		co_return std::nullopt;
+	//	}
+	//});
+	//_server.OnAfter ([] (fv::Request &_req, fv::Response &_res) -> Task<void> {
+	//	// TODO
+	//	co_return;
+	//});
 	_server.OnRequest ("/hello", [] (fv::Request &_req) -> Task<fv::Response> {
 		co_return fv::Response::FromText ("hello world");
 	});
-	// TODO
+	co_await _server.Run (8080);
 	co_return;
 }
 
 int main () {
+	fv::Tasks::Start (true);
 	fv::Tasks::RunAsync (run_server);
 	::_getch ();
+	fv::Tasks::Stop ();
 	return 0;
 }
 

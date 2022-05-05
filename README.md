@@ -162,10 +162,81 @@ co_await _conn->Send (_str.data (), _str.size ());
 co_await _conn->Close ();
 ```
 
-### HTTP(S) Server (WIP)
+### HTTP Server (Websocket Server)
 
 ```cpp
-// TODO
+// 服务器对象
+fv::HttpServer _server {};
+
+// 指定 HTTP 请求处理回调
+_server.SetHttpHandler ("/hello", [] (fv::Request &_req) -> Task<fv::Response> {
+	co_return fv::Response::FromText ("hello world");
+});
+
+// 指定 websocket 请求处理回调
+_server.SetHttpHandler ("/ws", [] (fv::Request &_req) -> Task<fv::Response> {
+	// 检查是否为 websocket 请求
+	if (_req.IsWebsocket ()) {
+		// 升级为 websocket
+		auto _conn = co_await _req.UpgradeWebsocket ();
+		while (true) {
+			auto [_data, _type] = co_await _conn->Recv ();
+			if (_type == fv::WsType::Text) {
+				co_await _conn->SendText (_data.data (), _data.size ());
+			} else if (_type == fv::WsType::Binary) {
+				co_await _conn->SendBinary (_data.data (), _data.size ());
+			}
+		}
+		// 请求完成 websocket 升级后返回空即可
+		co_return fv::Response::Empty ();
+	} else {
+		co_return fv::Response::FromText ("please use websocket");
+	}
+});
+
+// 设置前置请求过滤（可不设置）
+_server.OnBefore ([] (fv::Request &_req) -> std::optional<Task<fv::Response>> {
+	// 此处返回 std::nullopt 代表不做过滤，否则代表过滤请求（不进入 SetHttpHandler 处理回调）
+	co_return std::nullopt;
+});
+
+// 设置后置请求过滤（可不设置）
+_server.OnAfter ([] (fv::Request &_req, fv::Response &_res) -> Task<void> {
+	// 此处可对返回内容做一些处理
+	co_return std::nullopt;
+});
+
+// 设置未 handle 的请求处理函数（可不设置）
+_server.OnUnhandled ([] (fv::Request &_req) -> Task<fv::Response> {
+	co_return fv::Response::FromText ("not handled!");
+});
+
+// 开始监听
+co_await _server.Run (8080);
+```
+
+### TCP Server
+
+```cpp
+// 服务器对象
+TcpServer m_tcpserver {};
+
+// 设置新链接处理函数
+m_tcpserver.SetOnConnect ([&m_tcpserver] (std::shared_ptr<IConn> _conn) -> Task<void> {
+	// 此处自由发挥，退出函数则链接断开，通常 while (true)
+
+	// 可考虑注册客户端及取消注册，此处自己根据业务指定ID
+	m_tcpserver.RegisterClient (123, _conn);
+	m_tcpserver.UnregisterClient (123, _conn);
+});
+
+// 假如处理函数内部注册后，外部可直接给对应客户端发消息或者广播消息
+std::string _data = "hello";
+co_await m_tcpserver.SendData (123, _data.data (), _data.size ());
+co_await m_tcpserver.BroadcastData (_data.data (), _data.size ());
+
+// 开始监听
+co_await m_tcpserver.Run (2233);
 ```
 
 ## 附带的其他异步功能
@@ -192,14 +263,11 @@ _sema.Release ();
 ```
 
 ## Roadmap
-- [x] HTTP(S) Client
-- [x] TCP Client
+
+- [x] HTTP(S) Server/Client
+- [x] TCP Server/Client
 - [x] SSL Client
-- [x] Websocket Client
-- [ ] UDP Client
+- [x] Websocket Server/Client
+- [ ] UDP Server/Client
 - [ ] Cancellation
 - [ ] Dns Cache
-- [x] HTTP(S) Server (WIP)
-- [ ] TCP Server
-- [ ] SSL Server
-- [ ] Websocket Server

@@ -163,8 +163,12 @@ struct body_raw {
 
 
 struct IConn;
+struct WsConn;
 
 struct Request {
+	Request () {}
+	Request (std::string _url, MethodType _method): Url (_url), Method (_method) {}
+
 	TimeSpan Timeout = std::chrono::seconds (0);
 	std::string Server = "";
 	//
@@ -182,9 +186,14 @@ struct Request {
 	static void SetDefaultHeader (std::string _key, std::string _value) { m_def_headers [_key] = _value; }
 
 	std::string Serilize (MethodType _method, std::string _host, std::string _path);
+	bool IsWebsocket ();
+	Task<std::shared_ptr<WsConn>> UpgradeWebsocket ();
+	bool IsUpgraded () { return Upgrade; }
 
 private:
 	bool _content_raw_contains_files ();
+	std::shared_ptr<IConn> Conn;
+	bool Upgrade = false;
 
 	inline static CaseInsensitiveMap m_def_headers { { "Accept", "*/*" }, { "Accept-Encoding", "gzip" }, { "Cache-Control", "no-cache" }, { "Connection", "keep-alive" }, { "User-Agent", "libfv-0.0.1" } };
 };
@@ -197,8 +206,10 @@ struct Response {
 	CaseInsensitiveMap Headers;
 
 	static Task<Response> GetFromConn (std::shared_ptr<IConn> _conn);
+	static Response Empty () { return Response {}; }
 	static Response FromNotFound ();
 	static Response FromText (std::string _text);
+	static Response FromUpgradeWebsocket (Request &_r);
 
 	std::string Serilize ();
 
@@ -291,8 +302,9 @@ enum class WsType { Continue = 0, Text = 1, Binary = 2, Close = 8, Ping = 9, Pon
 
 struct WsConn {
 	std::shared_ptr<IConn> Parent;
+	bool IsClient = true;
 
-	WsConn (std::shared_ptr<IConn> _parent): Parent (_parent) {}
+	WsConn (std::shared_ptr<IConn> _parent, bool _is_client): Parent (_parent), IsClient (_is_client) {}
 	~WsConn () { Close (); }
 	bool IsConnect () { return Parent && Parent->IsConnect (); }
 	Task<void> SendText (char *_data, size_t _size) { co_await _Send (_data, _size, WsType::Text); }
@@ -350,7 +362,7 @@ inline void _OptionApplys (Request &_r, _Op1 _op1, _Ops ..._ops) { _OptionApply 
 
 Task<Response> DoMethod (Request _r);
 inline Task<Response> Head (std::string _url) {
-	co_return co_await DoMethod (Request { .Url = _url, .Method = MethodType::Head });
+	co_return co_await DoMethod (Request { _url, MethodType::Head });
 }
 template<TOption ..._Ops>
 inline Task<Response> Head (std::string _url, _Ops ..._ops) {
@@ -359,7 +371,7 @@ inline Task<Response> Head (std::string _url, _Ops ..._ops) {
 	co_return co_await DoMethod (_r);
 }
 inline Task<Response> Option (std::string _url) {
-	co_return co_await DoMethod (Request { .Url = _url, .Method = MethodType::Option });
+	co_return co_await DoMethod (Request { _url, MethodType::Option });
 }
 template<TOption ..._Ops>
 inline Task<Response> Option (std::string _url, _Ops ..._ops) {
@@ -368,7 +380,7 @@ inline Task<Response> Option (std::string _url, _Ops ..._ops) {
 	co_return co_await DoMethod (_r);
 }
 inline Task<Response> Get (std::string _url) {
-	co_return co_await DoMethod (Request { .Url = _url, .Method = MethodType::Get });
+	co_return co_await DoMethod (Request { _url, MethodType::Get });
 }
 template<TOption ..._Ops>
 inline Task<Response> Get (std::string _url, _Ops ..._ops) {
@@ -406,7 +418,7 @@ inline Task<Response> Put (std::string _url, body_raw _data, _Ops ..._ops) {
 }
 template<TFormOption ..._Ops>
 inline Task<Response> Delete (std::string _url) {
-	co_return co_await DoMethod (Request { .Url = _url, .Method = MethodType::Delete });
+	co_return co_await DoMethod (Request { _url, MethodType::Delete });
 }
 template<TOption ..._Ops>
 inline Task<Response> Delete (std::string _url, _Ops ..._ops) {
@@ -414,6 +426,46 @@ inline Task<Response> Delete (std::string _url, _Ops ..._ops) {
 	_OptionApplys (_r, _ops...);
 	co_return co_await DoMethod (_r);
 }
+
+
+
+struct TcpServer {
+	void SetOnConnect (std::function<Task<void> (std::shared_ptr<IConn>)> _on_connect);
+	void RegisterClient (int64_t _id, std::shared_ptr<IConn> _conn);
+	void UnregisterClient (int64_t _id, std::shared_ptr<IConn> _conn);
+	Task<bool> SendData (int64_t _id, char *_data, size_t _size);
+	Task<size_t> BroadcastData (char *_data, size_t _size);
+	Task<void> Run (uint16_t _port);
+	void Stop ();
+
+private:
+	std::function<Task<void> (std::shared_ptr<IConn>)> OnConnect;
+	std::mutex Mutex;
+	std::unordered_map<int64_t, std::shared_ptr<IConn>> Clients;
+
+	std::unique_ptr<Tcp::acceptor> Acceptor;
+	std::atomic_bool IsRun { false };
+};
+
+
+
+struct HttpServer {
+	void OnBefore (std::function<Task<std::optional<fv::Response>> (fv::Request &)> _cb) { m_before = _cb; }
+	void SetHttpHandler (std::string _path, std::function<Task<fv::Response> (fv::Request &)> _cb) { m_map_proc [_path] = _cb; }
+	void OnUnhandled (std::function<Task<fv::Response> (fv::Request &)> _cb) { m_unhandled_proc = _cb; }
+	void OnAfter (std::function<Task<void> (fv::Request &, fv::Response &)> _cb) { m_after = _cb; }
+
+	Task<void> Run (uint16_t _port);
+
+	void Stop () { m_tcpserver.Stop (); }
+
+private:
+	TcpServer m_tcpserver {};
+	std::function<Task<std::optional<Response>> (Request &)> m_before;
+	std::unordered_map<std::string, std::function<Task<Response> (Request &)>> m_map_proc;
+	std::function<Task<Response> (Request &)> m_unhandled_proc = [] (Request &) -> Task<Response> { co_return Response::FromNotFound (); };
+	std::function<Task<void> (Request &, Response &)> m_after;
+};
 }
 
 

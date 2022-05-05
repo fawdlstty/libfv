@@ -9,8 +9,6 @@
 #include <regex>
 #include <sstream>
 
-#include <nlohmann/json.hpp>
-
 #ifndef ZLIB_CONST
 #pragma warning (push)
 #pragma warning (disable: 4068)
@@ -21,6 +19,11 @@
 #include <gzip/version.hpp>
 #pragma warning (pop)
 #endif
+
+#include <nlohmann/json.hpp>
+#include <openssl/sha.h>
+
+
 
 using boost::asio::socket_base;
 using boost::asio::use_awaitable;
@@ -33,6 +36,11 @@ bool Config::NoDelay = false;
 
 
 
+static std::string _to_lower (std::string _s) {
+	std::transform (_s.begin (), _s.end (), _s.begin (), ::tolower);
+	return _s;
+}
+
 static std::tuple<std::string, std::string, std::string, std::string> _parse_url (std::string _url) {
 	size_t _p = _url.find ('#');
 	if (_p != std::string::npos)
@@ -40,8 +48,7 @@ static std::tuple<std::string, std::string, std::string, std::string> _parse_url
 	std::string _schema = "http";
 	_p = _url.find ("://");
 	if (_p != std::string::npos) {
-		_schema = _url.substr (0, _p);
-		std::transform (_schema.begin (), _schema.end (), _schema.begin (), ::tolower);
+		_schema = _to_lower (_url.substr (0, _p));
 		_url = _url.substr (_p + 3);
 	}
 	//
@@ -73,10 +80,9 @@ static std::tuple<std::string, std::string, std::string, std::string> _parse_url
 
 
 bool CaseInsensitiveEqual::operator() (const std::string &str1, const std::string &str2) const noexcept {
-	return str1.size () == str2.size () &&
-		std::equal (str1.begin (), str1.end (), str2.begin (), [] (char a, char b) {
+	return str1.size () == str2.size () && std::equal (str1.begin (), str1.end (), str2.begin (), [] (char a, char b) {
 		return tolower (a) == tolower (b);
-			});
+	});
 }
 
 
@@ -91,7 +97,7 @@ size_t CaseInsensitiveHash::operator() (const std::string &str) const noexcept {
 
 
 
-std::string percent_str_encode (std::string_view data) {
+static std::string percent_encode (std::string_view data) {
 	const static char *hex_char = "0123456789ABCDEF";
 	std::string ret = "";
 	for (size_t i = 0; i < data.size (); ++i) {
@@ -105,6 +111,40 @@ std::string percent_str_encode (std::string_view data) {
 			ret += hex_char [((unsigned char) ch) >> 4];
 			ret += hex_char [((unsigned char) ch) % 16];
 		}
+	}
+	return ret;
+}
+
+static std::string base64_encode (std::string_view data) {
+	static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	std::string ret;
+	int i = 0, j = 0;
+	unsigned char char_3 [3], char_4 [4];
+	unsigned int in_len = data.size ();
+	unsigned char *bytes_to_encode = (unsigned char *) &data [0];
+	while (in_len--) {
+		char_3 [i++] = *(bytes_to_encode++);
+		if (i == 3) {
+			char_4 [0] = (char_3 [0] & 0xfc) >> 2;
+			char_4 [1] = ((char_3 [0] & 0x03) << 4) + ((char_3 [1] & 0xf0) >> 4);
+			char_4 [2] = ((char_3 [1] & 0x0f) << 2) + ((char_3 [2] & 0xc0) >> 6);
+			char_4 [3] = char_3 [2] & 0x3f;
+
+			for (i = 0; i < 4; i++)
+				ret += base64_chars [char_4 [i]];
+			i = 0;
+		}
+	}
+	if (i) {
+		for (j = i; j < 3; j++)
+			char_3 [j] = '\0';
+		char_4 [0] = (char_3 [0] & 0xfc) >> 2;
+		char_4 [1] = ((char_3 [0] & 0x03) << 4) + ((char_3 [1] & 0xf0) >> 4);
+		char_4 [2] = ((char_3 [1] & 0x0f) << 2) + ((char_3 [2] & 0xc0) >> 6);
+		for (j = 0; j < i + 1; j++)
+			ret += base64_chars [char_4 [j]];
+		while ((i++ < 3))
+			ret += '=';
 	}
 	return ret;
 }
@@ -257,8 +297,7 @@ Task<Request> Request::GetFromConn (std::shared_ptr<IConn> _conn, uint16_t _list
 		std::string _value = _trim (_line.substr (_p + 1));
 		_r.Headers [_key] = _value;
 	}
-	_tmp = _r.Headers ["Connection"];
-	std::transform (_tmp.begin (), _tmp.end (), _tmp.begin (), ::tolower);
+	_tmp = _to_lower (_r.Headers ["Connection"]);
 	if (_tmp == "upgrade")
 		_r.Schema = _r.Schema == "https" ? "wss" : "ws";
 	std::string _port = "";
@@ -269,6 +308,7 @@ Task<Request> Request::GetFromConn (std::shared_ptr<IConn> _conn, uint16_t _list
 		size_t _p = std::stoi (_r.Headers ["Content-Length"]);
 		_r.Content = co_await _conn->ReadCount (_p);
 	}
+	_r.Conn = _conn;
 	co_return _r;
 }
 
@@ -334,7 +374,7 @@ std::string Request::Serilize (MethodType _method, std::string _host, std::strin
 				if (i > 0)
 					_ss1 << '&';
 				body_kv &_data = std::get<0> (ContentRaw [i]);
-				_ss1 << percent_str_encode (_data.Name) << '=' << percent_str_encode (_data.Value);
+				_ss1 << percent_encode (_data.Name) << '=' << percent_encode (_data.Value);
 			}
 		}
 		Content = _ss1.str ();
@@ -350,6 +390,20 @@ std::string Request::Serilize (MethodType _method, std::string _host, std::strin
 	_ss << "\r\n";
 	_ss << Content;
 	return _ss.str ();
+}
+
+bool Request::IsWebsocket () {
+	return _to_lower (Headers ["Connection"]) == "upgrade" && Headers ["Sec-WebSocket-Version"] == "13" && Headers ["Sec-WebSocket-Key"].size () > 0;
+}
+
+Task<std::shared_ptr<WsConn>> Request::UpgradeWebsocket () {
+	if (!IsWebsocket ())
+		throw Exception ("请求非 Websocket 请求，升级Websocket失败");
+	Response _res = Response::FromUpgradeWebsocket (*this);
+	std::string _res_str = _res.Serilize ();
+	co_await Conn->Send (_res_str.data (), _res_str.size ());
+	Upgrade = true;
+	co_return std::make_shared<WsConn> (Conn, false);
 }
 
 
@@ -382,8 +436,7 @@ Task<Response> Response::GetFromConn (std::shared_ptr<IConn> _conn) {
 		if (_sz > 0) {
 			_r.Content = co_await _conn->ReadCount (_sz);
 			if (_r.Headers.contains ("Content-Encoding")) {
-				_line = _r.Headers ["Content-Encoding"];
-				std::transform (_line.begin (), _line.end (), _line.begin (), ::tolower);
+				_line = _to_lower (_r.Headers ["Content-Encoding"]);
 				if (_line == "gzip") {
 					_r.Content = gzip::decompress (_r.Content.data (), _r.Content.size ());
 				}
@@ -405,11 +458,23 @@ Response Response::FromText (std::string _text) {
 	return _res;
 }
 
+Response Response::FromUpgradeWebsocket (Request &_r) {
+	auto _res = Response { .HttpCode = 101 };
+	Response::InitDefaultHeaders (_res.Headers);
+	std::string _tmp = std::format ("{}258EAFA5-E914-47DA-95CA-C5AB0DC85B11", _r.Headers ["Sec-WebSocket-Key"]);
+	char _buf [20];
+	::SHA1 ((const unsigned char *) _tmp.data (), _tmp.size (), (unsigned char *) _buf);
+	_tmp = std::string (_buf, sizeof (_buf));
+	_res.Headers ["Sec-WebSocket-Accept"] = base64_encode (_tmp);
+	_res.Headers ["Connection"] = "Upgrade";
+	_res.Headers ["Upgrade"] = _r.Headers ["Upgrade"];
+	return _res;
+}
+
 std::string Response::Serilize () {
 	std::string _cnt = Content;
 	if (_cnt.size () > 0) {
-		std::string _cnt_enc = Headers ["Content-Encoding"];
-		std::transform (_cnt_enc.begin (), _cnt_enc.end (), _cnt_enc.begin (), ::tolower);
+		std::string _cnt_enc = _to_lower (Headers ["Content-Encoding"]);
 		if (_cnt_enc == "gzip") {
 			_cnt = gzip::compress (_cnt.data (), _cnt.size ());
 		} else if (_cnt_enc != "") {
@@ -680,27 +745,31 @@ Task<void> WsConn::_Send (char *_data, size_t _size, WsType _type) {
 	}
 	std::stringstream _ss;
 	_ss << (char) (0x80 | (char) _type);
+	static std::vector<char> _mask = { (char) 0xfa, (char) 0xfb, (char) 0xfc, (char) 0xfd };
 	if (_size > 0) {
 		if (_size < 126) {
-			_ss << (char) (0x80 | _size);
+			_ss << (char) (_size);
 		} else if (_size < 0xffff) {
-			_ss << (char) (0x80 | 126) << (char) ((_size >> 8) & 0xff) << (char) (_size & 0xff);
+			_ss << (char) (126) << (char) ((_size >> 8) & 0xff) << (char) (_size & 0xff);
 		} else {
-			_ss << (char) (0x80 | 127);
+			_ss << (char) (127);
 			int64_t _size64 = (int64_t) _size;
 			for (int i = 7; i >= 0; --i)
 				_ss << (char) ((_size64 >> (i * 8)) & 0xff);
 		}
-		for (size_t i = 0; i < 4; ++i)
-			_ss << (char) 0xff;
+		if (IsClient) {
+			for (size_t i = 0; i < 4; ++i)
+				_ss << _mask [i];
+		}
 		_ss << std::string_view { _data, _size };
 	} else {
 		_ss << '\0';
 	}
 	std::string _to_send = _ss.str ();
-	std::vector<char> _mask = { (char) 0xff, (char) 0xff, (char) 0xff, (char) 0xff };
-	for (size_t i = 6; i < _to_send.size (); ++i)
-		_to_send [i] ^= _mask [i % 4];
+	if (IsClient) {
+		for (size_t i = 6; i < _to_send.size (); ++i)
+			_to_send [i] ^= _mask [i % 4];
+	}
 	if (_type == WsType::Close) {
 		try {
 			co_await Parent->Send (_to_send.data (), _to_send.size ());
@@ -737,7 +806,7 @@ Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url) {
 		co_await _conn->Connect (_host, _port);
 
 		// generate data
-		Request _r { .Url = _url };
+		Request _r { _url, MethodType::Get };
 		_OptionApplys (_r, header ("Pragma", "no-cache"), connection ("Upgrade"), header ("Upgrade", "websocket"),
 			header ("Sec-WebSocket-Version", "13"), header ("Sec-WebSocket-Key", "libfvlibfv=="));
 		std::string _data = _r.Serilize (MethodType::Get, _host, _path);
@@ -747,7 +816,7 @@ Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url) {
 
 		// recv
 		co_await Response::GetFromConn (_conn);
-		co_return std::make_shared<WsConn> (_conn);
+		co_return std::make_shared<WsConn> (_conn, true);
 	} else {
 		throw Exception ("未知协议：{}", _schema);
 	}
@@ -797,6 +866,122 @@ Task<Response> DoMethod (Request _r) {
 
 	// recv
 	co_return co_await Response::GetFromConn (_conn);
+}
+
+
+
+void TcpServer::SetOnConnect (std::function<Task<void> (std::shared_ptr<IConn>)> _on_connect) {
+	OnConnect = _on_connect;
+}
+
+void TcpServer::RegisterClient (int64_t _id, std::shared_ptr<IConn> _conn) {
+	std::unique_lock _ul { Mutex };
+	Clients [_id] = _conn;
+}
+
+void TcpServer::UnregisterClient (int64_t _id, std::shared_ptr<IConn> _conn) {
+	std::unique_lock _ul { Mutex };
+	if (Clients [_id].get () == _conn.get ())
+		Clients.erase (_id);
+}
+
+Task<bool> TcpServer::SendData (int64_t _id, char *_data, size_t _size) {
+	try {
+		std::unique_lock _ul { Mutex };
+		if (Clients.contains (_id)) {
+			auto _conn = Clients [_id];
+			_ul.unlock ();
+			co_await Clients [_id]->Send (_data, _size);
+			co_return true;
+		}
+	} catch (...) {
+	}
+	co_return false;
+}
+
+Task<size_t> TcpServer::BroadcastData (char *_data, size_t _size) {
+	std::unique_lock _ul { Mutex };
+	std::unordered_set<std::shared_ptr<IConn>> _conns;
+	for (auto [_key, _val] : Clients)
+		_conns.emplace (_val);
+	_ul.unlock ();
+	size_t _count = 0;
+	for (auto _conn : _conns) {
+		try {
+			co_await _conn->Send (_data, _size);
+			_count++;
+		} catch (...) {
+		}
+	}
+	co_return _count;
+}
+
+Task<void> TcpServer::Run (uint16_t _port) {
+	if (IsRun.load ())
+		co_return;
+	IsRun.store (true);
+	auto _executor = co_await boost::asio::this_coro::executor;
+	Acceptor = std::make_unique<Tcp::acceptor> (_executor, Tcp::endpoint { Tcp::v4 (), _port }, true);
+	try {
+		for (; IsRun.load ();) {
+			std::shared_ptr<IConn> _conn = std::shared_ptr<IConn> ((IConn *) new TcpConn2 (co_await Acceptor->async_accept (use_awaitable)));
+			Tasks::RunAsync ([this, _conn] () -> Task<void> {
+				try {
+					co_await OnConnect (_conn);
+				} catch (...) {
+				}
+			});
+		}
+	} catch (...) {
+	}
+}
+
+void TcpServer::Stop () {
+	IsRun.store (false);
+	if (Acceptor)
+		Acceptor->cancel ();
+}
+
+
+
+Task<void> HttpServer::Run (uint16_t _port) {
+	m_tcpserver.SetOnConnect ([this, _port] (std::shared_ptr<IConn> _conn) -> Task<void> {
+		while (true) {
+			Request _req = co_await Request::GetFromConn (_conn, _port);
+			if (m_before) {
+				std::optional<Response> _ores = co_await m_before (_req);
+				if (_ores.has_value ()) {
+					if (m_after)
+						co_await m_after (_req, _ores.value ());
+					std::string _str_res = _ores.value ().Serilize ();
+					co_await _conn->Send (_str_res.data (), _str_res.size ());
+					continue;
+				}
+			}
+			Response _res {};
+			if (m_map_proc.contains (_req.UrlPath)) {
+				try {
+					_res = co_await m_map_proc [_req.UrlPath] (_req);
+				} catch (...) {
+				}
+			}
+			if (_res.HttpCode == -1) {
+				try {
+					_res = co_await m_unhandled_proc (_req);
+				} catch (...) {
+				}
+			}
+			if (_req.IsUpgraded ())
+				break;
+			if (_res.HttpCode == -1)
+				_res = Response::FromNotFound ();
+			if (m_after)
+				co_await m_after (_req, _res);
+			std::string _str_res = _res.Serilize ();
+			co_await _conn->Send (_str_res.data (), _str_res.size ());
+		}
+	});
+	co_await m_tcpserver.Run (_port);
 }
 }
 

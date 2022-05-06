@@ -17,7 +17,9 @@
 #include <variant>
 #include <vector>
 
+#ifndef BOOST_ASIO_HAS_CO_AWAIT
 #define BOOST_ASIO_HAS_CO_AWAIT
+#endif
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 

@@ -2,7 +2,7 @@
 
 English | [简体中文](./README.zh.md)
 
-libfv is C++20 header-only network library, support TCP, SSL, Http1.1, websocket
+libfv is C++20 header-only network library, support TCP/SSL/Http/websocket server and client
 
 You can use pure asynchronous networking with it, or you can use asynchronous wrappers without networking at all and support asynchronous development in your projects.
 
@@ -12,10 +12,9 @@ In addition to providing network functions, the library also provides a variety 
 
 1. config `vcpkg` environment (example system: Windows)
 	```
-	vcpkg install boost-asio:x86-windows-static
-	vcpkg install nlohmann-json:x86-windows-static
-	vcpkg install gzip-hpp:x86-windows-static
-	vcpkg install openssl:x86-windows-static
+	git clone https://github.com/microsoft/vcpkg
+	.\vcpkg\bootstrap-vcpkg.bat
+	vcpkg install boost-asio nlohmann-json gzip-hpp openssl
 	```
 2. Initialize
 	```cpp

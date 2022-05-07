@@ -2,7 +2,7 @@
 
 [English](./README.md) | 简体中文
 
-libfv 是 C++20 纯头文件网络库，支持 TCP、SSL、Http1.1、websocket
+libfv 是 C++20 纯头文件网络库，支持 TCP/SSL/Http/websocket 服务器端与客户端
 
 你可以通过它使用纯异步的网络功能，当然你也能完全不使用网络，仅使用异步包装功能，让你的项目支持异步开发。
 
@@ -12,10 +12,9 @@ libfv 是 C++20 纯头文件网络库，支持 TCP、SSL、Http1.1、websocket
 
 1. 配置 `vcpkg` 环境 （示例windows平台）
 	```
-	vcpkg install boost-asio:x86-windows-static
-	vcpkg install nlohmann-json:x86-windows-static
-	vcpkg install gzip-hpp:x86-windows-static
-	vcpkg install openssl:x86-windows-static
+	git clone https://github.com/microsoft/vcpkg
+	.\vcpkg\bootstrap-vcpkg.bat
+	vcpkg install boost-asio nlohmann-json gzip-hpp openssl
 	```
 2. 初始化
 	```cpp

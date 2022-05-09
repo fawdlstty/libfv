@@ -171,12 +171,21 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="tmp.cpp" />
     <ClCompile Include="libfv.test.cpp" />
+    <ClCompile Include="tmp.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\include\fv\fv-impl.hpp" />
+    <ClInclude Include="..\include\fv\base.hpp" />
+    <ClInclude Include="..\include\fv\common.hpp" />
+    <ClInclude Include="..\include\fv\common_funcs.hpp" />
+    <ClInclude Include="..\include\fv\conn_impl.hpp" />
+    <ClInclude Include="..\include\fv\conn.hpp" />
     <ClInclude Include="..\include\fv\fv.h" />
+    <ClInclude Include="..\include\fv\http_client.hpp" />
+    <ClInclude Include="..\include\fv\http_client_impl.hpp" />
+    <ClInclude Include="..\include\fv\req_res_impl.hpp" />
+    <ClInclude Include="..\include\fv\req_res.hpp" />
+    <ClInclude Include="..\include\fv\server.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

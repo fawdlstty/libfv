@@ -26,10 +26,37 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\include\fv\fv.h">
+    <ClInclude Include="..\include\fv\conn.hpp">
       <Filter>头文件\include/fv</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fv\fv-impl.hpp">
+    <ClInclude Include="..\include\fv\conn_impl.hpp">
+      <Filter>头文件\include/fv</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fv\req_res.hpp">
+      <Filter>头文件\include/fv</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fv\common.hpp">
+      <Filter>头文件\include/fv</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fv\base.hpp">
+      <Filter>头文件\include/fv</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fv\req_res_impl.hpp">
+      <Filter>头文件\include/fv</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fv\common_funcs.hpp">
+      <Filter>头文件\include/fv</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fv\http_client.hpp">
+      <Filter>头文件\include/fv</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fv\http_client_impl.hpp">
+      <Filter>头文件\include/fv</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fv\server.hpp">
+      <Filter>头文件\include/fv</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fv\fv.h">
       <Filter>头文件\include/fv</Filter>
     </ClInclude>
   </ItemGroup>

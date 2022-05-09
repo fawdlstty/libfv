@@ -10,18 +10,13 @@ In addition to providing network functions, the library also provides a variety 
 
 ## Started
 
-1. config `vcpkg` environment (example system: Windows)
+1. Install and config `vcpkg` environment
 	```
-	git clone https://github.com/microsoft/vcpkg
-	.\vcpkg\bootstrap-vcpkg.bat
 	vcpkg install boost-asio nlohmann-json gzip-hpp openssl
 	```
 2. Initialize
 	```cpp
-	// Any cpp file imports this header once (preferably an empty cpp file)
-	#include <fv/fv-impl.hpp>
-
-	// Import library header files in source files that need to use the API
+	// Import header file
 	#include <fv/fv.hpp>
 
 	// Main function

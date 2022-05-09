@@ -10,18 +10,13 @@ libfv 是 C++20 纯头文件网络库，支持 TCP/SSL/Http/websocket 服务器�
 
 ## 配置环境
 
-1. 配置 `vcpkg` 环境 （示例windows平台）
+1. 安装并配置 `vcpkg` 环境
 	```
-	git clone https://github.com/microsoft/vcpkg
-	.\vcpkg\bootstrap-vcpkg.bat
 	vcpkg install boost-asio nlohmann-json gzip-hpp openssl
 	```
 2. 初始化
 	```cpp
-	// 任一一个cpp文件引入一次这个头文件（最好是空cpp文件）
-	#include <fv/fv-impl.hpp>
-
-	// 在需要使用api的源码文件里引入库头文件
+	// 引入库头文件
 	#include <fv/fv.hpp>
 
 	// 主函数

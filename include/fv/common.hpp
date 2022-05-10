@@ -120,7 +120,7 @@ struct Tasks {
 		//if constexpr (std::is_void<TRet>::value) {
 		//	m_ctx.post (f);
 		//} else if constexpr (std::is_same<TRet, Task<void>>::value) {
-		asio::co_spawn (m_ctx, std::forward (f), asio::detached);
+		asio::co_spawn (m_ctx, f, asio::detached);
 		//} else {
 		//	static_assert (false, "返回类型只能为 void 或 Task<void>");
 		//}

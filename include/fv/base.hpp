@@ -5,6 +5,8 @@
 
 #include <string>
 
+#include <fmt/core.h>
+
 #include "common.hpp"
 #include "common_funcs.hpp"
 

@@ -62,6 +62,22 @@ using CaseInsensitiveMap = std::unordered_map<std::string, std::string, CaseInse
 
 
 
+struct Exception: public std::exception {
+	Exception (std::string _err): m_err (_err) {}
+	//template<typename ...Args>
+	//Exception (std::string _err, Args ..._args): m_err (fmt::format (_err, _args...)) {}
+#ifdef _MSC_VER
+	char const *what () const override { return m_err.c_str (); }
+#else
+	const char *what () const _GLIBCXX_TXN_SAFE_DYN _GLIBCXX_USE_NOEXCEPT  { return m_err.c_str (); }
+#endif
+
+private:
+	std::string m_err = "";
+};
+
+
+
 struct AsyncSemaphore {
 	AsyncSemaphore (int _init_count): m_sp (_init_count) {}
 	void Release () { m_sp.release (); }
@@ -181,23 +197,6 @@ struct AsyncTimer {
 
 private:
 	AsyncSemaphore m_sema { 1 };
-};
-
-
-
-struct Exception: public std::exception {
-	Exception (std::string _err): m_err (_err) {}
-	template<typename ...Args>
-	Exception (std::string _err, Args ..._args): m_err (fmt::format (_err, _args...)) {}
-#ifdef _MSC_VER
-	char const *what () const override { return m_err.c_str (); }
-#else
-	const char *what () const _GLIBCXX_TXN_SAFE_DYN _GLIBCXX_USE_NOEXCEPT  { return m_err.c_str (); }
-#endif
-	
-
-private:
-	std::string m_err = "";
 };
 }
 

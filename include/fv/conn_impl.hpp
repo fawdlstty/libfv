@@ -90,7 +90,7 @@ inline Task<void> TcpConn::Connect (std::string _host, std::string _port) {
 		co_await Socket.async_connect (_it->endpoint (), UseAwaitable);
 	}
 	if (!Socket.is_open ())
-		throw Exception ("无法连接至目标服务器 {}", _host);
+		throw Exception (fmt::format ("无法连接至目标服务器 {}", _host));
 	if (Config::NoDelay)
 		Socket.set_option (Tcp::no_delay { true });
 }
@@ -175,7 +175,7 @@ inline Task<void> SslConn::Connect (std::string _host, std::string _port) {
 		co_await SslSocket.next_layer ().async_connect (_it->endpoint (), UseAwaitable);
 	}
 	if (!SslSocket.next_layer ().is_open ())
-		throw Exception ("Cannot connect to server {}", _host);
+		throw Exception (fmt::format ("Cannot connect to server {}", _host));
 	if (Config::NoDelay)
 		SslSocket.next_layer ().set_option (Tcp::no_delay { true });
 	co_await SslSocket.async_handshake (Ssl::stream_base::client, UseAwaitable);
@@ -311,7 +311,7 @@ inline Task<std::shared_ptr<IConn>> Connect (std::string _url) {
 		co_await _conn->Connect (_host, _port);
 		co_return _conn;
 	} else {
-		throw Exception ("未知协议：{}", _schema);
+		throw Exception (fmt::format ("未知协议：{}", _schema));
 	}
 }
 
@@ -337,7 +337,7 @@ inline Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url) {
 		co_await Response::GetFromConn (_conn);
 		co_return std::make_shared<WsConn> (_conn, true);
 	} else {
-		throw Exception ("未知协议：{}", _schema);
+		throw Exception (fmt::format ("未知协议：{}", _schema));
 	}
 }
 }

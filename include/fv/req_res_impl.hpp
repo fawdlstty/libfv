@@ -176,7 +176,7 @@ inline Task<Response> Response::GetFromConn (std::shared_ptr<IConn> _conn) {
 	::sscanf (_line.data (), "HTTP/%*[0-9.] %d", &_r.HttpCode);
 #endif
 	if (_r.HttpCode == -1)
-		throw Exception ("无法解析的标识：{}", _line);
+		throw Exception (fmt::format ("无法解析的标识：{}", _line));
 	while ((_line = co_await _conn->ReadLine ()) != "") {
 		size_t _p = _line.find (':');
 		std::string _key = _trim (_line.substr (0, _p));

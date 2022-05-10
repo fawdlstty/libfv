@@ -6,8 +6,14 @@
 
 
 Task<void> test_client () {
-	fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com");
-	std::cout << _r.Content;
+	try {
+		fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com");
+		std::cout << _r.Content;
+	} catch (std::exception &_e) {
+		std::cout << "catch error: " << _e.what ();
+	} catch (...) {
+		std::cout << "catch error.";
+	}
 }
 
 

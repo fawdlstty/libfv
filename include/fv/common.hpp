@@ -118,9 +118,9 @@ struct Tasks {
 	static void RunAsync (F &&f) {
 		//using TRet = decltype (f ());
 		//if constexpr (std::is_void<TRet>::value) {
-		//	m_ctx.post (f);
+		//	m_ctx.post (std::forward<F> (f));
 		//} else if constexpr (std::is_same<TRet, Task<void>>::value) {
-		asio::co_spawn (m_ctx, f, asio::detached);
+		asio::co_spawn (m_ctx, std::forward<F> (f), asio::detached);
 		//} else {
 		//	static_assert (false, "返回类型只能为 void 或 Task<void>");
 		//}

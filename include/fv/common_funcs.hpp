@@ -64,7 +64,7 @@ inline std::string base64_encode (std::string_view data) {
 	std::string ret;
 	int i = 0, j = 0;
 	unsigned char char_3 [3], char_4 [4];
-	unsigned int in_len = data.size ();
+	size_t in_len = data.size ();
 	unsigned char *bytes_to_encode = (unsigned char *) &data [0];
 	while (in_len--) {
 		char_3 [i++] = *(bytes_to_encode++);

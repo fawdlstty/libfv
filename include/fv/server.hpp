@@ -56,7 +56,7 @@ struct TcpServer {
 		if (IsRun.load ())
 			co_return;
 		IsRun.store (true);
-		auto _executor = co_await boost::asio::this_coro::executor;
+		auto _executor = co_await asio::this_coro::executor;
 		Acceptor = std::make_unique<Tcp::acceptor> (_executor, Tcp::endpoint { Tcp::v4 (), _port }, true);
 		try {
 			for (; IsRun.load ();) {

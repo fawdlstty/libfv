@@ -3,19 +3,19 @@
 
 
 
-#include <format>
 #include <string>
 #include <unordered_map>
 
+#include <fmt/core.h>
 #ifndef ZLIB_CONST
-#	pragma warning (push)
-#	pragma warning (disable: 4068)
+//#	pragma warning (push)
+//#	pragma warning (disable: 4068)
 #	include <gzip/config.hpp>
 #	include <gzip/compress.hpp>
 #	include <gzip/decompress.hpp>
 #	include <gzip/utils.hpp>
 #	include <gzip/version.hpp>
-#	pragma warning (pop)
+//#	pragma warning (pop)
 #endif
 #include <nlohmann/json.hpp>
 
@@ -52,8 +52,8 @@ inline Task<Request> Request::GetFromConn (std::shared_ptr<IConn> _conn, uint16_
 		_r.Schema = _r.Schema == "https" ? "wss" : "ws";
 	std::string _port = "";
 	if (!((_listen_port == 80 && (_r.Schema == "http" || _r.Schema == "ws")) || (_listen_port == 443 && (_r.Schema == "https" || _r.Schema == "wss"))))
-		_port = std::format (":{}", _listen_port);
-	_r.Url = std::format ("{}://{}{}{}", _r.Schema, _r.Headers ["Host"], _port, _r.UrlPath);
+		_port = fmt::format (":{}", _listen_port);
+	_r.Url = fmt::format ("{}://{}{}{}", _r.Schema, _r.Headers ["Host"], _port, _r.UrlPath);
 	if (_r.Headers.contains ("Content-Length")) {
 		size_t _p = std::stoi (_r.Headers ["Content-Length"]);
 		_r.Content = co_await _conn->ReadCount (_p);
@@ -73,8 +73,8 @@ inline std::string Request::Serilize (MethodType _method, std::string _host, std
 		if (_content_type == "") {
 			// 生成新content type
 			if (_content_raw_contains_files ()) {
-				_boundary = std::format ("------libfv-{}", random_str (8));
-				_content_type = std::format ("multipart/form-data; boundary={}", _boundary);
+				_boundary = fmt::format ("------libfv-{}", random_str (8));
+				_content_type = fmt::format ("multipart/form-data; boundary={}", _boundary);
 			} else {
 				_content_type = "application/json";
 			}
@@ -86,7 +86,7 @@ inline std::string Request::Serilize (MethodType _method, std::string _host, std
 					size_t _p = _content_type.find ("boundary=");
 					_boundary = _content_type.substr (_p + 9);
 				} else {
-					throw Exception (std::format ("ContentType 为 {} 时，无法提交文件内容", _content_type));
+					throw Exception (fmt::format ("ContentType 为 {} 时，无法提交文件内容", _content_type));
 				}
 			} else {
 				// 都行
@@ -100,12 +100,12 @@ inline std::string Request::Serilize (MethodType _method, std::string _host, std
 				_ss1 << _boundary << "\r\n";
 				if (_item.index () == 0) {
 					body_kv &_data = std::get<0> (_item);
-					_ss1 << std::format ("Content-Disposition: form-data; name=\"{}\"\r\n", _data.Name);
+					_ss1 << fmt::format ("Content-Disposition: form-data; name=\"{}\"\r\n", _data.Name);
 					_ss1 << "\r\n";
 					_ss1 << _data.Value << "\r\n";
 				} else {
 					body_file &_file = std::get<1> (_item);
-					_ss1 << std::format ("Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"\r\n", _file.Name, _file.FileName);
+					_ss1 << fmt::format ("Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"\r\n", _file.Name, _file.FileName);
 					_ss1 << "\r\n";
 					_ss1 << _file.FileContent << "\r\n";
 				}
@@ -130,7 +130,7 @@ inline std::string Request::Serilize (MethodType _method, std::string _host, std
 		Content = _ss1.str ();
 	}
 	if (Content.size () > 0) {
-		Headers ["Content-Length"] = std::format ("{}", Content.size ());
+		Headers ["Content-Length"] = fmt::format ("{}", Content.size ());
 		if (!Headers.contains ("Content-Type"))
 			Headers ["Content-Type"] = Content [0] == '{' ? "application/json" : "application/x-www-form-urlencoded";
 	}
@@ -170,7 +170,11 @@ inline bool Request::_content_raw_contains_files () {
 inline Task<Response> Response::GetFromConn (std::shared_ptr<IConn> _conn) {
 	std::string _line = co_await _conn->ReadLine ();
 	Response _r {};
+#ifdef _MSC_VER
 	::sscanf_s (_line.data (), "HTTP/%*[0-9.] %d", &_r.HttpCode);
+#else
+	::sscanf (_line.data (), "HTTP/%*[0-9.] %d", &_r.HttpCode);
+#endif
 	if (_r.HttpCode == -1)
 		throw Exception ("无法解析的标识：{}", _line);
 	while ((_line = co_await _conn->ReadLine ()) != "") {
@@ -209,7 +213,7 @@ inline Response Response::FromText (std::string _text) {
 inline Response Response::FromUpgradeWebsocket (Request &_r) {
 	auto _res = Response { .HttpCode = 101 };
 	Response::InitDefaultHeaders (_res.Headers);
-	std::string _tmp = std::format ("{}258EAFA5-E914-47DA-95CA-C5AB0DC85B11", _r.Headers ["Sec-WebSocket-Key"]);
+	std::string _tmp = fmt::format ("{}258EAFA5-E914-47DA-95CA-C5AB0DC85B11", _r.Headers ["Sec-WebSocket-Key"]);
 	char _buf [20];
 	::SHA1 ((const unsigned char *) _tmp.data (), _tmp.size (), (unsigned char *) _buf);
 	_tmp = std::string (_buf, sizeof (_buf));
@@ -226,14 +230,14 @@ inline std::string Response::Serilize () {
 		if (_cnt_enc == "gzip") {
 			_cnt = gzip::compress (_cnt.data (), _cnt.size ());
 		} else if (_cnt_enc != "") {
-			throw Exception (std::format ("Unrecognized content encoding type [{}]", _cnt_enc));
+			throw Exception (fmt::format ("Unrecognized content encoding type [{}]", _cnt_enc));
 		}
-		Headers ["Content-Length"] = std::format ("{}", _cnt.size ());
+		Headers ["Content-Length"] = fmt::format ("{}", _cnt.size ());
 	}
 
 	std::stringstream _ss;
 	std::unordered_map<int, std::string> s_httpcode { { 100, "Continue" }, { 101, "Switching Protocols" }, { 200, "OK" }, { 201, "Created" }, { 202, "Accepted" }, { 203, "Non-Authoritative Information" }, { 204, "No Content" }, { 205, "Reset Content" }, { 206, "Partial Content" }, { 300, "Multiple Choices" }, { 301, "Moved Permanently" }, { 302, "Found" }, { 303, "See Other" }, { 304, "Not Modified" }, { 305, "Use Proxy" }, { 306, "Unused" }, { 307, "Temporary Redirect" }, { 400, "Bad Request" }, { 401, "Unauthorized" }, { 402, "Payment Required" }, { 403, "Forbidden" }, { 404, "Not Found" }, { 405, "Method Not Allowed" }, { 406, "Not Acceptable" }, { 407, "Proxy Authentication Required" }, { 408, "Request Time-out" }, { 409, "Conflict" }, { 410, "Gone" }, { 411, "Length Required" }, { 412, "Precondition Failed" }, { 413, "Request Entity Too Large" }, { 414, "Request-URI Too Large" }, { 415, "Unsupported Media Type" }, { 416, "Requested range not satisfiable" }, { 417, "Expectation Failed" }, { 500, "Internal Server Error" }, { 501, "Not Implemented" }, { 502, "Bad Gateway" }, { 503, "Service Unavailable" }, { 504, "Gateway Time-out" }, { 505, "HTTP Version not supported" } };
-	_ss << std::format ("HTTP/1.1 {} {}\r\n", HttpCode, s_httpcode.contains (HttpCode) ? s_httpcode [HttpCode] : "Unknown");
+	_ss << fmt::format ("HTTP/1.1 {} {}\r\n", HttpCode, s_httpcode.contains (HttpCode) ? s_httpcode [HttpCode] : "Unknown");
 	for (auto [_key, _val] : Headers)
 		_ss << _key << ": " << _val << "\r\n";
 	_ss << "\r\n";

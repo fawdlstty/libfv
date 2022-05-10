@@ -31,7 +31,7 @@ struct header {
 };
 struct authorization: public header {
 	authorization (std::string _auth): header ("Authorization", _auth) {}
-	authorization (std::string _uid, std::string _pwd): header ("Authorization", std::format ("Basic {}", base64_encode (std::format ("{}:{}", _uid, _pwd)))) {}
+	authorization (std::string _uid, std::string _pwd): header ("Authorization", fmt::format ("Basic {}", base64_encode (fmt::format ("{}:{}", _uid, _pwd)))) {}
 };
 struct connection: public header { connection (std::string _co): header ("Connection", _co) {} };
 struct content_type: public header { content_type (std::string _co): header ("Content-Type", _co) {} };

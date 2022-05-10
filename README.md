@@ -12,11 +12,13 @@ In addition to providing network functions, the library also provides a variety 
 
 1. Install and config `vcpkg` environment
 	```
-	vcpkg install boost-asio nlohmann-json gzip-hpp openssl
+	vcpkg install boost-asio fmt gzip-hpp nlohmann-json openssl zlib
+	# `boost-asio` can be changed to `asio`
 	```
 2. Initialize
 	```cpp
-	// Import header file
+	// Import header file (Macro need to be defined if use standalone asio)
+	#define ASIO_STANDALONE
 	#include <fv/fv.hpp>
 
 	// Main function

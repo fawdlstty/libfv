@@ -9,24 +9,36 @@
 #include <functional>
 #include <unordered_map>
 
+#ifdef ASIO_STANDALONE
+#ifndef ASIO_HAS_CO_AWAIT
+#define ASIO_HAS_CO_AWAIT
+#endif
+#include <asio.hpp>
+#include <asio/ssl.hpp>
+#else
 #ifndef BOOST_ASIO_HAS_CO_AWAIT
 #define BOOST_ASIO_HAS_CO_AWAIT
 #endif
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
+#endif
 
 
 
 namespace fv {
-#define Task boost::asio::awaitable
-using Tcp = boost::asio::ip::tcp;
-using Udp = boost::asio::ip::udp;
-namespace Ssl = boost::asio::ssl;
-using IoContext = boost::asio::io_context;
-using TimeSpan = std::chrono::system_clock::duration;
-using SocketBase = boost::asio::socket_base;
+#ifndef ASIO_STANDALONE
+namespace asio = boost::asio;
+#endif
+
+#define Task asio::awaitable
+using Tcp = asio::ip::tcp;
+using Udp = asio::ip::udp;
+namespace Ssl = asio::ssl;
+using IoContext = asio::io_context;
+using SocketBase = asio::socket_base;
 using SslCheckCb = std::function<bool (bool, Ssl::verify_context &)>;
-inline decltype (boost::asio::use_awaitable) &UseAwaitable = boost::asio::use_awaitable;
+inline decltype (asio::use_awaitable) &UseAwaitable = asio::use_awaitable;
+using TimeSpan = std::chrono::system_clock::duration;
 
 
 
@@ -57,7 +69,7 @@ struct AsyncSemaphore {
 	void Acquire () { m_sp.acquire (); }
 	Task<void> AcquireAsync () {
 		while (!m_sp.try_acquire ()) {
-			boost::asio::steady_timer timer (co_await boost::asio::this_coro::executor);
+			asio::steady_timer timer (co_await asio::this_coro::executor);
 			timer.expires_after (std::chrono::milliseconds (1));
 			co_await timer.async_wait (UseAwaitable);
 		}
@@ -67,7 +79,7 @@ struct AsyncSemaphore {
 		while (!m_sp.try_acquire ()) {
 			if (std::chrono::system_clock::now () >= _until)
 				co_return false;
-			boost::asio::steady_timer timer (co_await boost::asio::this_coro::executor);
+			asio::steady_timer timer (co_await asio::this_coro::executor);
 			timer.expires_after (std::chrono::milliseconds (1));
 			co_await timer.async_wait (UseAwaitable);
 		}
@@ -96,7 +108,7 @@ struct Tasks {
 		if constexpr (std::is_void<TRet>::value) {
 			m_ctx.post (f);
 		} else if constexpr (std::is_same<TRet, Task<void>>::value) {
-			boost::asio::co_spawn (m_ctx, f, boost::asio::detached);
+			asio::co_spawn (m_ctx, f, asio::detached);
 		} else {
 			static_assert (false, "返回类型只能为 void 或 Task<void>");
 		}
@@ -105,7 +117,7 @@ struct Tasks {
 	template<typename F, typename... Args>
 	static void RunAsync (F &&f, Args... args) { return RunAsync (std::bind (f, args...)); }
 	static Task<void> Delay (TimeSpan _dt) {
-		boost::asio::steady_timer timer (co_await boost::asio::this_coro::executor);
+		asio::steady_timer timer (co_await asio::this_coro::executor);
 		timer.expires_after (_dt);
 		co_await timer.async_wait (UseAwaitable);
 	}
@@ -157,7 +169,7 @@ struct AsyncTimer {
 				} else if constexpr (std::is_same<_TRet, Task<void>>::value) {
 					co_await _cb ();
 				} else {
-					throw std::exception ("不支持的回调函数返回类型");
+					throw Exception ("不支持的回调函数返回类型");
 				}
 			}
 		}, _elapse, _cb);
@@ -176,8 +188,13 @@ private:
 struct Exception: public std::exception {
 	Exception (std::string _err): m_err (_err) {}
 	template<typename ...Args>
-	Exception (std::string _err, Args ..._args): m_err (std::format (_err, _args...)) {}
+	Exception (std::string _err, Args ..._args): m_err (fmt::format (_err, _args...)) {}
+#ifdef _MSC_VER
 	char const *what () const override { return m_err.c_str (); }
+#else
+	const char *what () const _GLIBCXX_TXN_SAFE_DYN _GLIBCXX_USE_NOEXCEPT  { return m_err.c_str (); }
+#endif
+	
 
 private:
 	std::string m_err = "";

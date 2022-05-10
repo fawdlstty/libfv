@@ -19,7 +19,11 @@ inline Task<char> IConn::ReadChar () {
 		char _buf [1024];
 		size_t _n = co_await RecvImpl (_buf, sizeof (_buf));
 		TmpData.resize (_n);
+#ifdef _MSC_VER
 		::memcpy_s (&TmpData [0], _n, _buf, _n);
+#else
+		::memcpy (&TmpData [0], _buf, _n);
+#endif
 	}
 	char _ret = TmpData [0];
 	TmpData.erase (0);
@@ -79,9 +83,9 @@ inline Task<void> TcpConn::Connect (std::string _host, std::string _port) {
 	std::regex _r { "(\\d+\\.){3}\\d+" };
 	if (std::regex_match (_host, _r)) {
 		uint16_t _sport = (uint16_t) std::stoi (_port);
-		co_await Socket.async_connect (Tcp::endpoint { boost::asio::ip::address::from_string (_host), _sport }, UseAwaitable);
+		co_await Socket.async_connect (Tcp::endpoint { asio::ip::address::from_string (_host), _sport }, UseAwaitable);
 	} else {
-		std::string _sport = std::format ("{}", _port);
+		std::string _sport = fmt::format ("{}", _port);
 		auto _it = co_await ResolverImpl.async_resolve (_host, _sport, UseAwaitable);
 		co_await Socket.async_connect (_it->endpoint (), UseAwaitable);
 	}
@@ -103,7 +107,7 @@ inline Task<void> TcpConn::Send (char *_data, size_t _size) {
 		throw Exception ("Cannot send data to a closed connection.");
 	size_t _sended = 0;
 	while (_sended < _size) {
-		size_t _tmp_send = co_await Socket.async_send (boost::asio::buffer (&_data [_sended], _size - _sended), UseAwaitable);
+		size_t _tmp_send = co_await Socket.async_send (asio::buffer (&_data [_sended], _size - _sended), UseAwaitable);
 		if (_tmp_send == 0)
 			throw Exception ("Connection temp closed.");
 		_sended += _tmp_send;
@@ -113,7 +117,7 @@ inline Task<void> TcpConn::Send (char *_data, size_t _size) {
 inline Task<size_t> TcpConn::RecvImpl (char *_data, size_t _size) {
 	if (!Socket.is_open ())
 		co_return 0;
-	size_t _count = co_await Socket.async_read_some (boost::asio::buffer (_data, _size), UseAwaitable);
+	size_t _count = co_await Socket.async_read_some (asio::buffer (_data, _size), UseAwaitable);
 	co_return _count;
 }
 
@@ -141,7 +145,7 @@ inline Task<void> TcpConn2::Send (char *_data, size_t _size) {
 		throw Exception ("Cannot send data to a closed connection.");
 	size_t _sended = 0;
 	while (_sended < _size) {
-		size_t _tmp_send = co_await Socket.async_send (boost::asio::buffer (&_data [_sended], _size - _sended), UseAwaitable);
+		size_t _tmp_send = co_await Socket.async_send (asio::buffer (&_data [_sended], _size - _sended), UseAwaitable);
 		if (_tmp_send == 0)
 			throw Exception ("Connection temp closed.");
 		_sended += _tmp_send;
@@ -151,7 +155,7 @@ inline Task<void> TcpConn2::Send (char *_data, size_t _size) {
 inline Task<size_t> TcpConn2::RecvImpl (char *_data, size_t _size) {
 	if (!Socket.is_open ())
 		co_return 0;
-	size_t _count = co_await Socket.async_read_some (boost::asio::buffer (_data, _size), UseAwaitable);
+	size_t _count = co_await Socket.async_read_some (asio::buffer (_data, _size), UseAwaitable);
 	co_return _count;
 }
 
@@ -164,9 +168,9 @@ inline Task<void> SslConn::Connect (std::string _host, std::string _port) {
 	std::regex _r { "(\\d+\\.){3}\\d+" };
 	if (std::regex_match (_host, _r)) {
 		uint16_t _sport = (uint16_t) std::stoi (_port);
-		co_await SslSocket.next_layer ().async_connect (Tcp::endpoint { boost::asio::ip::address::from_string (_host), _sport }, UseAwaitable);
+		co_await SslSocket.next_layer ().async_connect (Tcp::endpoint { asio::ip::address::from_string (_host), _sport }, UseAwaitable);
 	} else {
-		std::string _sport = std::format ("{}", _port);
+		std::string _sport = fmt::format ("{}", _port);
 		auto _it = co_await ResolverImpl.async_resolve (_host, _sport, UseAwaitable);
 		co_await SslSocket.next_layer ().async_connect (_it->endpoint (), UseAwaitable);
 	}
@@ -189,7 +193,7 @@ inline Task<void> SslConn::Send (char *_data, size_t _size) {
 		throw Exception ("Cannot send data to a closed connection.");
 	size_t _sended = 0;
 	while (_sended < _size) {
-		size_t _tmp_send = co_await SslSocket.async_write_some (boost::asio::buffer (&_data [_sended], _size - _sended), UseAwaitable);
+		size_t _tmp_send = co_await SslSocket.async_write_some (asio::buffer (&_data [_sended], _size - _sended), UseAwaitable);
 		if (_tmp_send == 0)
 			throw Exception ("Connection temp closed.");
 		_sended += _tmp_send;
@@ -197,7 +201,7 @@ inline Task<void> SslConn::Send (char *_data, size_t _size) {
 }
 
 inline Task<size_t> SslConn::RecvImpl (char *_data, size_t _size) {
-	co_return co_await SslSocket.async_read_some (boost::asio::buffer (_data, _size), UseAwaitable);
+	co_return co_await SslSocket.async_read_some (asio::buffer (_data, _size), UseAwaitable);
 }
 
 inline void SslConn::Cancel () {

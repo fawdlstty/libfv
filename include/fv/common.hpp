@@ -66,11 +66,7 @@ struct Exception: public std::exception {
 	Exception (std::string _err): m_err (_err) {}
 	//template<typename ...Args>
 	//Exception (std::string _err, Args ..._args): m_err (fmt::format (_err, _args...)) {}
-#ifdef _MSC_VER
-	char const *what () const override { return m_err.c_str (); }
-#else
-	const char *what () const _GLIBCXX_TXN_SAFE_DYN _GLIBCXX_USE_NOEXCEPT  { return m_err.c_str (); }
-#endif
+	const char* what() const noexcept override { return m_err.c_str (); }
 
 private:
 	std::string m_err = "";

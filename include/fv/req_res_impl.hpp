@@ -170,11 +170,7 @@ inline bool Request::_content_raw_contains_files () {
 inline Task<Response> Response::GetFromConn (std::shared_ptr<IConn> _conn) {
 	std::string _line = co_await _conn->ReadLine ();
 	Response _r {};
-#ifdef _MSC_VER
 	::sscanf_s (_line.data (), "HTTP/%*[0-9.] %d", &_r.HttpCode);
-#else
-	::sscanf (_line.data (), "HTTP/%*[0-9.] %d", &_r.HttpCode);
-#endif
 	if (_r.HttpCode == -1)
 		throw Exception (fmt::format ("无法解析的标识：{}", _line));
 	while ((_line = co_await _conn->ReadLine ()) != "") {

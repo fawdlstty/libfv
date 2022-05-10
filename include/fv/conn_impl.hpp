@@ -19,11 +19,7 @@ inline Task<char> IConn::ReadChar () {
 		char _buf [1024];
 		size_t _n = co_await RecvImpl (_buf, sizeof (_buf));
 		TmpData.resize (_n);
-#ifdef _MSC_VER
 		::memcpy_s (&TmpData [0], _n, _buf, _n);
-#else
-		::memcpy (&TmpData [0], _buf, _n);
-#endif
 	}
 	char _ret = TmpData [0];
 	TmpData.erase (0);

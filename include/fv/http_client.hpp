@@ -39,7 +39,7 @@ inline Task<Response> Head (std::string _url) {
 }
 template<TOption ..._Ops>
 inline Task<Response> Head (std::string _url, _Ops ..._ops) {
-	Request _r { .Url = _url, .Method = MethodType::Head };
+	Request _r { _url, MethodType::Head };
 	_OptionApplys (_r, _ops...);
 	co_return co_await DoMethod (_r);
 }
@@ -51,7 +51,7 @@ inline Task<Response> Option (std::string _url) {
 }
 template<TOption ..._Ops>
 inline Task<Response> Option (std::string _url, _Ops ..._ops) {
-	Request _r { .Url = _url, .Method = MethodType::Option };
+	Request _r { _url, MethodType::Option };
 	_OptionApplys (_r, _ops...);
 	co_return co_await DoMethod (_r);
 }
@@ -63,7 +63,7 @@ inline Task<Response> Get (std::string _url) {
 }
 template<TOption ..._Ops>
 inline Task<Response> Get (std::string _url, _Ops ..._ops) {
-	Request _r { .Url = _url, .Method = MethodType::Get };
+	Request _r { _url, MethodType::Get };
 	_OptionApplys (_r, _ops...);
 	co_return co_await DoMethod (_r);
 }
@@ -72,13 +72,13 @@ inline Task<Response> Get (std::string _url, _Ops ..._ops) {
 
 template<TFormOption ..._Ops>
 inline Task<Response> Post (std::string _url, _Ops ..._ops) {
-	Request _r { .Url = _url, .Method = MethodType::Post };
+	Request _r { _url, MethodType::Post };
 	_OptionApplys (_r, _ops...);
 	co_return co_await DoMethod (_r);
 }
 template<TOption ..._Ops>
 inline Task<Response> Post (std::string _url, body_raw _data, _Ops ..._ops) {
-	Request _r { .Url = _url, .Method = MethodType::Post, .Content = _data };
+	Request _r { _url, MethodType::Post };
 	_r.Headers ["Content-Type"] = _data.ContentType;
 	_r.Content = _data.Content;
 	_OptionApplys (_r, _ops...);
@@ -89,13 +89,13 @@ inline Task<Response> Post (std::string _url, body_raw _data, _Ops ..._ops) {
 
 template<TFormOption ..._Ops>
 inline Task<Response> Put (std::string _url, _Ops ..._ops) {
-	Request _r { .Url = _url, .Method = MethodType::Put };
+	Request _r { _url, MethodType::Put };
 	_OptionApplys (_r, _ops...);
 	co_return co_await DoMethod (_r);
 }
 template<TOption ..._Ops>
 inline Task<Response> Put (std::string _url, body_raw _data, _Ops ..._ops) {
-	Request _r { .Url = _url, .Method = MethodType::Put, .Content = _data };
+	Request _r { _url, MethodType::Put };
 	_r.Headers ["Content-Type"] = _data.ContentType;
 	_r.Content = _data.Content;
 	_OptionApplys (_r, _ops...);
@@ -110,7 +110,7 @@ inline Task<Response> Delete (std::string _url) {
 }
 template<TOption ..._Ops>
 inline Task<Response> Delete (std::string _url, _Ops ..._ops) {
-	Request _r { .Url = _url, .Method = MethodType::Delete };
+	Request _r { _url, MethodType::Delete };
 	_OptionApplys (_r, _ops...);
 	co_return co_await DoMethod (_r);
 }

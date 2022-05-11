@@ -19,7 +19,7 @@ inline Task<char> IConn::ReadChar () {
 		char _buf [1024];
 		size_t _n = co_await RecvImpl (_buf, sizeof (_buf));
 		TmpData.resize (_n);
-		::memcpy_s (&TmpData [0], _n, _buf, _n);
+		::memcpy (&TmpData [0], _buf, _n);
 	}
 	char _ret = TmpData [0];
 	TmpData.erase (0);
@@ -42,6 +42,8 @@ inline Task<std::string> IConn::ReadLine () {
 }
 
 inline Task<std::string> IConn::ReadCount (size_t _count) {
+	if (_count == 0)
+		co_return "";
 	std::string _tmp = "";
 	while (TmpData.size () < _count) {
 		char _buf [1024];
@@ -302,12 +304,12 @@ inline Task<std::shared_ptr<IConn>> Connect (std::string _url) {
 	//
 	if (_schema == "tcp") {
 		if (_path != "/")
-			throw Exception ("url格式错误");
+			throw Exception ("Url format error");
 		auto _conn = std::shared_ptr<IConn> (new TcpConn { Tasks::GetContext () });
 		co_await _conn->Connect (_host, _port);
 		co_return _conn;
 	} else {
-		throw Exception (fmt::format ("未知协议：{}", _schema));
+		throw Exception (fmt::format ("Unknown protocol: {}", _schema));
 	}
 }
 
@@ -333,7 +335,7 @@ inline Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url) {
 		co_await Response::GetFromConn (_conn);
 		co_return std::make_shared<WsConn> (_conn, true);
 	} else {
-		throw Exception (fmt::format ("未知协议：{}", _schema));
+		throw Exception (fmt::format ("Unknown protocol: {}", _schema));
 	}
 }
 }

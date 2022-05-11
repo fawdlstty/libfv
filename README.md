@@ -12,8 +12,8 @@ In addition to providing network functions, the library also provides a variety 
 
 1. Install and config `vcpkg` environment
 	```
-	vcpkg install boost-asio fmt gzip-hpp nlohmann-json openssl zlib
-	# `boost-asio` can be changed to `asio`
+	vcpkg install asio fmt gzip-hpp nlohmann-json openssl zlib
+	# `asio` can be changed to `boost-asio`
 	```
 2. Initialize
 	```cpp

@@ -4,6 +4,7 @@
 
 
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 #include <fmt/core.h>
@@ -86,7 +87,7 @@ inline std::string Request::Serilize (MethodType _method, std::string _host, std
 					size_t _p = _content_type.find ("boundary=");
 					_boundary = _content_type.substr (_p + 9);
 				} else {
-					throw Exception (fmt::format ("ContentType 为 {} 时，无法提交文件内容", _content_type));
+					throw Exception (fmt::format ("When Content-Type is {}, you can not commit file data", _content_type));
 				}
 			} else {
 				// 都行
@@ -148,7 +149,7 @@ inline bool Request::IsWebsocket () {
 
 inline Task<std::shared_ptr<WsConn>> Request::UpgradeWebsocket () {
 	if (!IsWebsocket ())
-		throw Exception ("请求非 Websocket 请求，升级Websocket失败");
+		throw Exception ("Request is not Websocket, upgrade failure");
 	Response _res = Response::FromUpgradeWebsocket (*this);
 	std::string _res_str = _res.Serilize ();
 	co_await Conn->Send (_res_str.data (), _res_str.size ());
@@ -170,9 +171,22 @@ inline bool Request::_content_raw_contains_files () {
 inline Task<Response> Response::GetFromConn (std::shared_ptr<IConn> _conn) {
 	std::string _line = co_await _conn->ReadLine ();
 	Response _r {};
-	::sscanf_s (_line.data (), "HTTP/%*[0-9.] %d", &_r.HttpCode);
-	if (_r.HttpCode == -1)
-		throw Exception (fmt::format ("无法解析的标识：{}", _line));
+	//::sscanf_s (_line.data (), "HTTP/%*[0-9.] %d", &_r.HttpCode);
+	std::string_view _view { &_line [0], &_line [5] };
+	if (_view != "HTTP/")
+		throw Exception (fmt::format ("Unrecognized http-protocol header: {}", _line));
+	_view = std::string_view { &_line [5] };
+	while (_view.size () > 0 && ((_view [0] >= '0' && _view [0] <= '9') || _view [0] == '.'))
+		_view = _view.substr (1);
+	while (_view.size () > 0 && _view [0] == ' ')
+		_view = _view.substr (1);
+	_r.HttpCode = 0;
+	while (_view.size () > 0 && _view [0] >= '0' && _view [0] <= '9') {
+		_r.HttpCode = _r.HttpCode * 10 + (_view [0] - '0');
+		_view = _view.substr (1);
+	}
+	if (_r.HttpCode == 0)
+		throw Exception (fmt::format ("Unrecognized http-protocol header: {}", _line));
 	while ((_line = co_await _conn->ReadLine ()) != "") {
 		size_t _p = _line.find (':');
 		std::string _key = _trim (_line.substr (0, _p));
@@ -180,15 +194,38 @@ inline Task<Response> Response::GetFromConn (std::shared_ptr<IConn> _conn) {
 		_r.Headers [_key] = _value;
 	}
 	if (_r.Headers.contains ("Content-Length")) {
-		int _sz = std::stoi (_r.Headers ["Content-Length"]);
-		if (_sz > 0) {
-			_r.Content = co_await _conn->ReadCount (_sz);
-			if (_r.Headers.contains ("Content-Encoding")) {
-				_line = _to_lower (_r.Headers ["Content-Encoding"]);
-				if (_line == "gzip") {
-					_r.Content = gzip::decompress (_r.Content.data (), _r.Content.size ());
+		size_t _sz = std::stoi (_r.Headers ["Content-Length"]);
+		_r.Content = co_await _conn->ReadCount (_sz);
+	} else if (_r.Headers.contains ("Transfer-Encoding") && _to_lower (_r.Headers ["Transfer-Encoding"]) == "chunked") {
+		_r.Content = "";
+		size_t _sz = 0;
+		do {
+			std::string _sz_str = co_await _conn->ReadLine ();
+			_sz = 0;
+			for (char ch : _sz_str) {
+				if (ch >= '0' && ch <= '9') {
+					_sz = _sz * 16 + (ch - '0');
+				} else if (ch >= 'A' && ch <= 'F') {
+					_sz = _sz * 16 + (ch - 'A' + 10);
+				} else if (ch >= 'a' && ch <= 'f') {
+					_sz = _sz * 16 + (ch - 'a' + 10);
+				} else {
+					throw Exception ("Unrecognized chunked size");
 				}
 			}
+			_r.Content += co_await _conn->ReadCount (_sz);
+			_sz_str = co_await _conn->ReadLine ();
+			if (_sz_str != "")
+				throw Exception ("Unrecognized chunked paragraph");
+		} while (_sz > 0);
+	} else {
+		co_return _r;
+	}
+
+	if (_r.Headers.contains ("Content-Encoding")) {
+		_line = _to_lower (_r.Headers ["Content-Encoding"]);
+		if (_line == "gzip") {
+			_r.Content = gzip::decompress (_r.Content.data (), _r.Content.size ());
 		}
 	}
 	co_return _r;

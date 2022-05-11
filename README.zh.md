@@ -12,8 +12,8 @@ libfv 是 C++20 纯头文件网络库，支持 TCP/SSL/Http/websocket 服务器�
 
 1. 安装并配置 `vcpkg` 环境
 	```
-	vcpkg install boost-asio fmt gzip-hpp nlohmann-json openssl zlib
-	# boost-asio 可换成 asio
+	vcpkg install asio fmt gzip-hpp nlohmann-json openssl zlib
+	# `asio` 可换成 `boost-asio`
 	```
 2. 初始化
 	```cpp

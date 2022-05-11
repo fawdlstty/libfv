@@ -5,19 +5,6 @@
 
 
 
-Task<void> test_client () {
-	try {
-		fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com");
-		std::cout << _r.Content;
-	} catch (std::exception &_e) {
-		std::cout << "catch error: " << _e.what ();
-	} catch (...) {
-		std::cout << "catch error.";
-	}
-}
-
-
-
 //Task<void> run_server () {
 //	fv::HttpServer _server {};
 //	_server.SetHttpHandler ("/hello", [] (fv::Request &_req) -> Task<fv::Response> {
@@ -50,7 +37,22 @@ Task<void> test_client () {
 
 
 
+Task<void> test_client () {
+	try {
+		fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com");
+		std::cout << _r.Content;
+		//std::cout << fmt::format ("read size: {}\n", _r.Content.size ());
+	} catch (std::exception &_e) {
+		std::cout << "catch error: " << _e.what ();
+	} catch (...) {
+		std::cout << "catch error.";
+	}
+}
+
+
+
 int main () {
+	//fv::Request::SetDefaultHeader ("Accept-Encoding", "");
 	fv::Tasks::Start (true);
 	fv::Tasks::RunAsync (test_client);
 	std::cout << "press any key to exit" << std::endl;

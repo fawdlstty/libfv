@@ -119,8 +119,8 @@ fv::Response _r = co_await fv::Get ("https://t.cn", fv::user_agent ("Mozilla/4.0
 HTTP pipeline（TCP 管道复用）示例：
 
 ```cpp
-// 创建会话，第二个参数指定服务IP（手工 DNS 解析），传空代表不指定
-Session _sess = co_await Session::FromUrl ("https://t.cn", "12.34.56.78");
+// 创建会话，第二个参数指定服务IP（手工 DNS 解析），传 "" 代表不指定
+fv::Session _sess = co_await fv::Session::FromUrl ("https://t.cn", "12.34.56.78");
 
 // 同一会话（TCP 链接）多次请求
 fv::Response _r = co_await _sess.Get ("https://t.cn");

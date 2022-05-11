@@ -120,7 +120,7 @@ HTTP pipeline (TCP connect reuse) example:
 
 ```cpp
 // Creates a session. The second parameter specifies the service IP (manual DNS resolution). "" indicates not specifies
-Session _sess = co_await Session::FromUrl ("https://t.cn", "12.34.56.78");
+fv::Session _sess = co_await fv::Session::FromUrl ("https://t.cn", "12.34.56.78");
 
 // Multiple requests for the same TCP connect
 fv::Response _r = co_await _sess.Get ("https://t.cn");

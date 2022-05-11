@@ -38,15 +38,22 @@
 
 
 Task<void> test_client () {
-	try {
-		fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com");
-		std::cout << _r.Content;
-		//std::cout << fmt::format ("read size: {}\n", _r.Content.size ());
-	} catch (std::exception &_e) {
-		std::cout << "catch error: " << _e.what ();
-	} catch (...) {
-		std::cout << "catch error.";
-	}
+	//try {
+	//	fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com");
+	//	std::cout << _r.Content;
+	//	//std::cout << fmt::format ("read size: {}\n", _r.Content.size ());
+	//} catch (std::exception &_e) {
+	//	std::cout << "catch error: " << _e.what ();
+	//} catch (...) {
+	//	std::cout << "catch error.";
+	//}
+	fv::Session _sess = co_await fv::Session::FromUrl ("https://www.fawdlstty.com", "");
+	fv::Response _r = co_await _sess.Get ("https://www.fawdlstty.com");
+	std::cout << _r.Content.size () << '\n';
+	_r = co_await _sess.Get ("https://www.fawdlstty.com");
+	std::cout << _r.Content.size () << '\n';
+	_r = co_await _sess.Get ("https://www.fawdlstty.com");
+	std::cout << _r.Content.size () << '\n';
 }
 
 

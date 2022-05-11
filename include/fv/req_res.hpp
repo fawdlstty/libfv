@@ -40,7 +40,7 @@ struct Request {
 	static CaseInsensitiveMap DefaultHeaders () { return m_def_headers; }
 	static void SetDefaultHeader (std::string _key, std::string _value) { m_def_headers [_key] = _value; }
 
-	std::string Serilize (MethodType _method, std::string _host, std::string _path);
+	std::string Serilize (std::string _host, std::string _path);
 	bool IsWebsocket ();
 	Task<std::shared_ptr<WsConn>> UpgradeWebsocket ();
 	bool IsUpgraded () { return Upgrade; }

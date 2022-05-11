@@ -20,6 +20,7 @@ enum class WsType { Continue = 0, Text = 1, Binary = 2, Close = 8, Ping = 9, Pon
 
 struct Config {
 	inline static SslCheckCb SslVerifyFunc = [] (bool preverified, Ssl::verify_context &ctx) { return true; };
+	inline static TimeSpan ConnectTimeout = std::chrono::seconds (2);
 	inline static bool NoDelay = false;
 };
 

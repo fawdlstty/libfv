@@ -9,7 +9,6 @@
 #include "common.hpp"
 #include "base.hpp"
 #include "conn.hpp"
-#include "http_client.hpp"
 
 
 
@@ -324,9 +323,12 @@ inline Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url) {
 
 		// generate data
 		Request _r { _url, MethodType::Get };
-		_OptionApplys (_r, header ("Pragma", "no-cache"), connection ("Upgrade"), header ("Upgrade", "websocket"),
-			header ("Sec-WebSocket-Version", "13"), header ("Sec-WebSocket-Key", "libfvlibfv=="));
-		std::string _data = _r.Serilize (MethodType::Get, _host, _path);
+		_r.Headers ["Pragma"] = "no-cache";
+		_r.Headers ["Connection"] = "Upgrade";
+		_r.Headers ["Upgrade"] = "websocket";
+		_r.Headers ["Sec-WebSocket-Version"] = "13";
+		_r.Headers ["Sec-WebSocket-Key"] = "libfvlibfv==";
+		std::string _data = _r.Serilize (_host, _path);
 
 		// send
 		co_await _conn->Send (_data.data (), _data.size ());

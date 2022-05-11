@@ -63,10 +63,10 @@ inline Task<Request> Request::GetFromConn (std::shared_ptr<IConn> _conn, uint16_
 	co_return _r;
 }
 
-inline std::string Request::Serilize (MethodType _method, std::string _host, std::string _path) {
+inline std::string Request::Serilize (std::string _host, std::string _path) {
 	std::stringstream _ss;
 	static std::unordered_map<MethodType, std::string> s_method_names { { MethodType::Head, "HEAD" }, { MethodType::Option, "OPTION" }, { MethodType::Get, "GET" }, { MethodType::Post, "POST" }, { MethodType::Put, "PUT" }, { MethodType::Delete, "DELETE" } };
-	_ss << s_method_names [_method] << " " << _path << " HTTP/1.1\r\n";
+	_ss << s_method_names [Method] << " " << _path << " HTTP/1.1\r\n";
 	if (!Headers.contains ("Host"))
 		Headers ["Host"] = _host;
 	if (Content.size () == 0 && ContentItems.size () > 0) {

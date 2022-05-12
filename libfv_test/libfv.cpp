@@ -38,7 +38,7 @@
 
 
 Task<void> test_client () {
-	fv::Session _sess = co_await fv::Session::FromUrl ("https://www.fawdlstty.com", "");
+	fv::Session _sess = co_await fv::Session::FromUrl ("https://www.fawdlstty.com");
 	fv::Response _r = co_await _sess.Get ("https://www.fawdlstty.com");
 	std::cout << _r.Content.size () << '\n';
 	//

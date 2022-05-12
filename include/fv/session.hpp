@@ -38,7 +38,7 @@ struct Session {
 	std::shared_ptr<IConn> Conn;
 
 	Session (std::shared_ptr<IConn> _conn): Conn (_conn) {}
-	static Task<Session> FromUrl (std::string _url, std::string _server) {
+	static Task<Session> FromUrl (std::string _url, std::string _server_ip = "") {
 		auto [_schema, _host, _port, _path] = _parse_url (_url);
 		std::shared_ptr<IConn> _conn;
 		if (_schema == "https") {
@@ -58,8 +58,7 @@ struct Session {
 		//}
 
 		// connect
-		_server = _server != "" ? _server : _host;
-		co_await _conn->Connect (_server, _port);
+		co_await _conn->Connect (_server_ip != "" ? _server_ip : _host, _port);
 
 		//_timer.Cancel ();
 		if (!_conn->IsConnect ())

@@ -38,33 +38,20 @@
 
 
 Task<void> test_client () {
-	//try {
-	//	fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com");
-	//	std::cout << _r.Content;
-	//	//std::cout << fmt::format ("read size: {}\n", _r.Content.size ());
-	//} catch (std::exception &_e) {
-	//	std::cout << "catch error: " << _e.what ();
-	//} catch (...) {
-	//	std::cout << "catch error.";
-	//}
 	fv::Session _sess = co_await fv::Session::FromUrl ("https://www.fawdlstty.com", "");
 	fv::Response _r = co_await _sess.Get ("https://www.fawdlstty.com");
 	std::cout << _r.Content.size () << '\n';
-	_r = co_await _sess.Get ("https://www.fawdlstty.com");
-	std::cout << _r.Content.size () << '\n';
-	_r = co_await _sess.Get ("https://www.fawdlstty.com");
-	std::cout << _r.Content.size () << '\n';
+	//
+	std::this_thread::sleep_for (std::chrono::seconds (10));
+	fv::Tasks::Stop ();
 }
 
 
 
 int main () {
-	//fv::Request::SetDefaultHeader ("Accept-Encoding", "");
-	fv::Tasks::Start (true);
+	fv::Tasks::Init ();
 	fv::Tasks::RunAsync (test_client);
-	std::cout << "press any key to exit" << std::endl;
-	//std::cin.get ();
-	std::this_thread::sleep_for (std::chrono::seconds (10));
-	fv::Tasks::Stop ();
+	fv::Tasks::LoopRun ();
+	fv::Tasks::Release ();
 	return 0;
 }

@@ -23,13 +23,16 @@ libfv 是 C++20 纯头文件网络库，支持 TCP/SSL/Http/websocket 服务器�
 
 	// 主函数
 	int main () {
-		// 全局初始化
-		fv::Tasks::Start (true);
+		// 全局初始化（参数可指定外部 asio::io_context 指针）
+		fv::Tasks::Init ();
 
 		// ...
 
+		// 循环处理任务（其他地方调用 `fv::Tasks::Stop ()` 可退出）
+		fv::Tasks::LoopRun ();
+
 		// 全局释放
-		fv::Tasks::Stop ();
+		fv::Tasks::Release ();
 		return 0;
 	}
 	```
@@ -124,8 +127,8 @@ fv::Session _sess = co_await fv::Session::FromUrl ("https://t.cn", "12.34.56.78"
 
 // 同一会话（TCP 链接）多次请求
 fv::Response _r = co_await _sess.Get ("https://t.cn");
-fv::Response _r = co_await _sess.Get ("https://t.cn");
-fv::Response _r = co_await _sess.Get ("https://t.cn");
+_r = co_await _sess.Get ("https://t.cn");
+_r = co_await _sess.Get ("https://t.cn");
 ```
 
 ### Websocket Client

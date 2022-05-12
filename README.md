@@ -23,13 +23,16 @@ In addition to providing network functions, the library also provides a variety 
 
 	// Main function
 	int main () {
-		// Global initialize
-		fv::Tasks::Start (true);
+		// Global initialize (you can specified the pointer of asio::io_context)
+		fv::Tasks::Init ();
 
 		// ...
 
+		// Loop processing task (or quit when another code call `fv::Tasks::Stop ()`)
+		fv::Tasks::LoopRun ();
+
 		// Global release
-		fv::Tasks::Stop ();
+		fv::Tasks::Release ();
 		return 0;
 	}
 	```
@@ -116,7 +119,7 @@ fv::Response _r = co_await fv::Get ("https://t.cn", fv::referer ("https://t.cn")
 fv::Response _r = co_await fv::Get ("https://t.cn", fv::user_agent ("Mozilla/4.0 Chrome 2333"));
 ```
 
-HTTP pipeline (TCP connect reuse) example:
+HTTP pipeline (TCP connection reuse) example:
 
 ```cpp
 // Creates a session. The second parameter specifies the service IP (manual DNS resolution). "" indicates not specifies
@@ -124,8 +127,8 @@ fv::Session _sess = co_await fv::Session::FromUrl ("https://t.cn", "12.34.56.78"
 
 // Multiple requests for the same TCP connect
 fv::Response _r = co_await _sess.Get ("https://t.cn");
-fv::Response _r = co_await _sess.Get ("https://t.cn");
-fv::Response _r = co_await _sess.Get ("https://t.cn");
+_r = co_await _sess.Get ("https://t.cn");
+_r = co_await _sess.Get ("https://t.cn");
 ```
 
 ### Websocket Client

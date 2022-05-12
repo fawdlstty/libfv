@@ -4,6 +4,7 @@
 
 
 #include <chrono>
+#include <mutex>
 #include <semaphore>
 #include <string>
 #include <functional>
@@ -116,14 +117,18 @@ private:
 struct Tasks {
 	template<typename F>
 	static void RunAsync (F &&f) {
-		//using TRet = decltype (f ());
-		//if constexpr (std::is_void<TRet>::value) {
-		//	m_ctx.post (std::forward<F> (f));
-		//} else if constexpr (std::is_same<TRet, Task<void>>::value) {
-		asio::co_spawn (m_ctx, std::forward<F> (f), asio::detached);
-		//} else {
-		//	static_assert (false, "返回类型只能为 void 或 Task<void>");
-		//}
+		std::unique_lock _ul { m_mtx };
+		if (!m_ctx)
+			throw Exception ("You should invoke Init method first");
+
+		using TRet = decltype (f ());
+		if constexpr (std::is_void<TRet>::value) {
+			m_ctx->post (std::forward<F> (f));
+		} else if constexpr (std::is_same<TRet, Task<void>>::value) {
+			asio::co_spawn (*m_ctx, std::forward<F> (f), asio::detached);
+		} else {
+			static_assert (std::is_void<TRet>::value || std::is_same<TRet, Task<void>>::value, "返回类型只能为 void 或 Task<void>");
+		}
 	}
 
 	template<typename F, typename... Args>
@@ -133,34 +138,71 @@ struct Tasks {
 		timer.expires_after (_dt);
 		co_await timer.async_wait (UseAwaitable);
 	}
-	static void Start (bool _new_thread) {
+	static void Init (IoContext *_ctx = nullptr) {
 		::srand ((unsigned int) ::time (NULL));
-		m_run.store (true);
-		static auto s_func = [] () {
-			m_running.store (true);
-			while (m_run.load ()) {
-				if (m_ctx.run_one () == 0)
-					std::this_thread::sleep_for (std::chrono::milliseconds (1));
-			}
-			m_running.store (false);
-		};
-		if (_new_thread) {
-			std::thread ([] () { s_func (); }).detach ();
+		std::unique_lock _ul { m_mtx };
+		if (m_ctx)
+			throw Exception ("You should only invoke Init method once");
+		if (_ctx) {
+			m_ctx = _ctx;
+			m_extern_ctx = true;
 		} else {
-			s_func ();
+			m_ctx = new IoContext { 1 };
 		}
 	}
+	static void Release () {
+		if (!m_extern_ctx)
+			delete m_ctx;
+		m_ctx = nullptr;
+	}
 	static void Stop () {
-		m_run.store (false);
-		while (m_running.load ())
-			std::this_thread::sleep_for (std::chrono::milliseconds (1));
+		std::unique_lock _ul { m_mtx };
+		m_run = false;
+	}
+	static void LoopRun () {
+		std::unique_lock _ul { m_mtx };
+		m_run = m_running = true;
+		while (m_run) {
+			_ul.unlock ();
+			if (m_ctx->run_one () == 0)
+				std::this_thread::sleep_for (std::chrono::milliseconds (1));
+			_ul.lock ();
+		}
+		m_running = false;
+	}
+	//static void LoopRun (size_t _thread = 1) {
+	//	std::unique_lock _ul { m_mtx };
+	//	m_run = m_running = true;
+	//	auto _loop_run = [] () {
+	//		std::unique_lock _ul { m_mtx };
+	//		while (m_run) {
+	//			_ul.unlock ();
+	//			if (m_ctx->run_one () == 0)
+	//				std::this_thread::sleep_for (std::chrono::milliseconds (1));
+	//			_ul.lock ();
+	//		}
+	//	};
+	//	if (_thread > 1) {
+	//		std::vector<std::unique_ptr<std::thread>> _threads;
+	//		for (size_t i = 1; i < _thread; ++i) {
+	//			_threads.emplace_back (std::make_unique<std::thread> ());
+	//		}
+	//	} else {
+	//		_loop_run ();
+	//	}
+	//	m_running = false;
+	//}
+	static IoContext &GetContext () {
+		std::unique_lock _ul { m_mtx };
+		if (!m_ctx)
+			Init ();
+		return *m_ctx;
 	}
 
-	static IoContext &GetContext () { return m_ctx; }
-
 private:
-	inline static IoContext m_ctx { 1 };
-	inline static std::atomic_bool m_run { false }, m_running { false };
+	inline static std::mutex m_mtx;
+	inline static IoContext *m_ctx = nullptr;
+	inline static bool m_run = false, m_running = false, m_extern_ctx = false;
 };
 
 struct AsyncTimer {

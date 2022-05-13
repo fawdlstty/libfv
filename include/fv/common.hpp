@@ -75,6 +75,66 @@ private:
 
 
 
+struct AsyncMutex {
+	AsyncMutex (bool _init_locked = false): m_locked (_init_locked) {}
+
+	bool TryLock () {
+		std::unique_lock _ul { m_mtx };
+		if (!m_locked) {
+			m_locked = true;
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	Task<void> Lock () {
+		std::unique_lock _ul { m_mtx, std::defer_lock };
+		while (true) {
+			_ul.lock ();
+			if (!m_locked) {
+				m_locked = true;
+				co_return;
+			}
+			_ul.unlock ();
+			co_await _delay (std::chrono::milliseconds (1));
+		}
+	}
+
+	Task<void> Lock (TimeSpan _timeout) {
+		std::unique_lock _ul { m_mtx, std::defer_lock };
+		auto _elapsed = std::chrono::system_clock::now () + _timeout;
+		while (_elapsed > std::chrono::system_clock::now ()) {
+			_ul.lock ();
+			if (!m_locked) {
+				m_locked = true;
+				co_return;
+			}
+			_ul.unlock ();
+			co_await _delay (std::chrono::milliseconds (1));
+		}
+	}
+
+	void Unlock () {
+		std::unique_lock _ul { m_mtx };
+		if (!m_locked)
+			throw Exception ("Cannot unlock a unlocked mutex");
+		m_locked = false;
+	}
+
+private:
+	static Task<void> _delay (TimeSpan _dt) {
+		asio::steady_timer timer (co_await asio::this_coro::executor);
+		timer.expires_after (_dt);
+		co_await timer.async_wait (UseAwaitable);
+	}
+
+	bool m_locked = false;
+	std::mutex m_mtx;
+};
+
+
+
 struct AsyncSemaphore {
 	AsyncSemaphore (int _init_count): m_sp (_init_count) {}
 	void Release () { m_sp.release (); }

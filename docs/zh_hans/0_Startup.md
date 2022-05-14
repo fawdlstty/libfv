@@ -64,4 +64,15 @@ fv::Tasks::RunAsync (async_func);
 fv::Tasks::RunAsync (async_func2, 5);
 ```
 
-现在我们已经创建好了异步函数环境，可以自由在里面编写异步代码啦！
+## 全局配置设置
+
+```cpp
+// 设置SSL校验函数（默认不校验）
+fv::Config::SslVerifyFunc = [] (bool preverified, fv::Ssl::verify_context &ctx) { return true; };
+
+// 设置全局TCP不延迟发送（对实时性要求较高场合使用）
+fv::Config::NoDelay = true;
+
+// 设置全局 http 头
+fv::Request::SetDefaultHeader ("User-Agent", "libfv-0.0.1");
+```

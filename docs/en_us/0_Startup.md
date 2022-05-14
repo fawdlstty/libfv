@@ -64,4 +64,15 @@ fv::Tasks::RunAsync (async_func);
 fv::Tasks::RunAsync (async_func2, 5);
 ```
 
-Now that we have created the asynchronous function environment, we can write asynchronous code in it.
+## Global configuration Settings
+
+```cpp
+// Set SSL verification function (default no verification)
+fv::Config::SslVerifyFunc = [] (bool preverified, fv::Ssl::verify_context &ctx) { return true; };
+
+// Setting global TCP transmission without delay (Used in scenarios requiring high real-time performance)
+fv::Config::NoDelay = true;
+
+// Setting the global HTTP header (client)
+fv::Request::SetDefaultHeader ("User-Agent", "libfv-0.0.1");
+```

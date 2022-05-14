@@ -1,18 +1,5 @@
 # HTTP 客户端
 
-## 全局配置设置
-
-```cpp
-// 设置SSL校验函数（默认不校验）
-fv::Config::SslVerifyFunc = [] (bool preverified, fv::Ssl::verify_context &ctx) { return true; };
-
-// 设置全局TCP不延迟发送（对实时性要求较高场合使用）
-fv::Config::NoDelay = true;
-
-// 设置全局 http 头
-fv::Request::SetDefaultHeader ("User-Agent", "libfv-0.0.1");
-```
-
 ## 发起请求
 
 共支持6种HTTP请求，可使用 `fv::Head`、`fv::Option`、`fv::Get`、`fv::Post`、`fv::Put`、`fv::Delete` 方法。

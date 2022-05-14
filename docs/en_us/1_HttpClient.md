@@ -1,18 +1,5 @@
 # HTTP Client
 
-## Global configuration Settings
-
-```cpp
-// Set SSL verification function (default no verification)
-fv::Config::SslVerifyFunc = [] (bool preverified, fv::Ssl::verify_context &ctx) { return true; };
-
-// Setting global TCP transmission without delay (Used in scenarios requiring high real-time performance)
-fv::Config::NoDelay = true;
-
-// Setting the global HTTP header (client)
-fv::Request::SetDefaultHeader ("User-Agent", "libfv-0.0.1");
-```
-
 ## Launch request
 
 A total of six HTTP requests are supported. You can use `fv::Head`、`fv::Option`、`fv::Get`、`fv::Post`、`fv::Put`、`fv::Delete` methods.

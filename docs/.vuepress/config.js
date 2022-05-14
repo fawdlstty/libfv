@@ -19,14 +19,36 @@ module.exports = {
             '/en_us/': {
                 sidebar: [{
                     title: 'Home',
-                    path: '/',
+                    path: '/en_us/',
                     children: []
                 }, {
                     title: 'Startup',
-                    path: '/0_startup/',
-                    children: [
-                        '/'
-                    ]
+                    path: '/en_us/0_Startup.md',
+                    children: []
+                }, {
+                    title: 'HTTP Client',
+                    path: '/en_us/1_HttpClient.md',
+                    children: []
+                }, {
+                    title: 'Websocket Client',
+                    path: '/en_us/2_WebsocketClient.md',
+                    children: []
+                }, {
+                    title: 'TCP & SSL Client',
+                    path: '/en_us/3_TcpSslClient.md',
+                    children: []
+                }, {
+                    title: 'HTTP Server',
+                    path: '/en_us/4_HttpServer.md',
+                    children: []
+                }, {
+                    title: 'TCP & SSL Server',
+                    path: '/en_us/5_TcpSslServer.md',
+                    children: []
+                }, {
+                    title: 'Another asynchronous functionality',
+                    path: '/en_us/6_Other.md',
+                    children: []
                 }]
             },
             '/zh_hans/': {

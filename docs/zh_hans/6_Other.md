@@ -1,8 +1,9 @@
 # 其他异步功能
 
-## 暂停 10 秒
+## 暂停任务
 
 ```cpp
+// 暂停 10 秒
 co_await fv::Tasks::Delay (std::chrono::seconds (10));
 ```
 

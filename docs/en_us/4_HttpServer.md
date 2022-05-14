@@ -1,14 +1,14 @@
-# HTTP 服务器端
+# HTTP Server
 
-**注：暂不支持 HTTPS 服务器端**
+**Note: HTTPS server is not supported now**
 
-## 创建服务器端对象
+## Create a server object
 
 ```cpp
 fv::HttpServer _server {};
 ```
 
-## 指定 HTTP 及 websocket 请求处理回调
+## Specify HTTP and Websocket request processing callbacks
 
 ```cpp
 _server.SetHttpHandler ("/hello", [] (fv::Request &_req) -> Task<fv::Response> {
@@ -16,9 +16,9 @@ _server.SetHttpHandler ("/hello", [] (fv::Request &_req) -> Task<fv::Response> {
 });
 
 _server.SetHttpHandler ("/ws", [] (fv::Request &_req) -> Task<fv::Response> {
-	// 检查是否为 websocket 请求
+	// Check whether it is a websocket request
 	if (_req.IsWebsocket ()) {
-		// 升级为 websocket
+		// Upgrade to websocket connect
 		auto _conn = co_await _req.UpgradeWebsocket ();
 		while (true) {
 			auto [_data, _type] = co_await _conn->Recv ();
@@ -28,7 +28,7 @@ _server.SetHttpHandler ("/ws", [] (fv::Request &_req) -> Task<fv::Response> {
 				co_await _conn->SendBinary (_data.data (), _data.size ());
 			}
 		}
-		// 请求完成 websocket 升级后返回空即可
+		// Return empty after websocket upgrade
 		co_return fv::Response::Empty ();
 	} else {
 		co_return fv::Response::FromText ("please use websocket");
@@ -36,25 +36,25 @@ _server.SetHttpHandler ("/ws", [] (fv::Request &_req) -> Task<fv::Response> {
 });
 ```
 
-## 设置前置请求过滤
+## Set before-request filtering
 
 ```cpp
 _server.OnBefore ([] (fv::Request &_req) -> std::optional<Task<fv::Response>> {
-	// 此处返回 std::nullopt 代表通过过滤，否则代表拦截请求（不进入 SetHttpHandler 处理回调）
+	// Return std::nullopt to indicate passing, otherwise intercept and return the currently returned result (Do not enter SetHttpHandler handling callback)
 	co_return std::nullopt;
 });
 ```
 
-## 设置后置请求过滤
+## Set after-request filtering
 
 ```cpp
 _server.OnAfter ([] (fv::Request &_req, fv::Response &_res) -> Task<void> {
-	// 此处可对返回内容做一些处理
+	// Here you can do something with the returned content
 	co_return std::nullopt;
 });
 ```
 
-## 设置未 handle 的请求处理函数
+## Set unhandled request handling callback
 
 ```cpp
 _server.OnUnhandled ([] (fv::Request &_req) -> Task<fv::Response> {
@@ -62,7 +62,7 @@ _server.OnUnhandled ([] (fv::Request &_req) -> Task<fv::Response> {
 });
 ```
 
-## 开始监听并启动服务
+## Start listen
 
 ```cpp
 co_await _server.Run (8080);

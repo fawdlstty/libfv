@@ -14,7 +14,7 @@ In addition to providing network functions, the library also provides a variety 
 
 [文档网站](http://libfv.fawdlstty.com/zh_hans/)
 
-[Github Online Document](docs/)
+[Github online view](docs/)
 
 ## Roadmap
 

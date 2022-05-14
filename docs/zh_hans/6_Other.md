@@ -15,7 +15,7 @@ boost::asio::io_context &_ctx = fv::Tasks::GetContext ();
 
 ## 异步锁
 
-异步锁是一款适用于异步的锁。相对于标准库的 std::mutex 来说，有以下特性：
+异步锁是一款适用于异步的锁。相对于标准库的 `std::mutex` 来说，有以下特性：
 
 - 支持异步等待加锁
 - 加锁与解锁不要求同一线程
@@ -49,4 +49,41 @@ _mtx.Unlock ();
 
 ```cpp
 _mtx.IsLocked ();
+```
+
+## 异步信号量
+
+异步信号量是一款适用于异步的信号量。相对于标准库的 `std::counting_semaphore` 来说，有以下特性：
+
+- 支持异步等待获取
+
+创建信号量：
+
+```cpp
+AsyncSemaphore _sema { 1 }; // 参数代表初始资源数
+```
+
+获取资源：
+
+```cpp
+// 尝试获取资源
+bool _acq = _sema.TryAcquire ();
+
+// 异步获取资源
+co_await _mtx.Acquire ();
+
+// 异步超时获取资源
+bool _acq = co_await _mtx.Acquire (std::chrono::seconds (1));
+```
+
+释放资源：
+
+```cpp
+_mtx.Release ();
+```
+
+获知现有资源数：
+
+```cpp
+_mtx.GetResCount ();
 ```

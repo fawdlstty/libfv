@@ -15,7 +15,7 @@ boost::asio::io_context &_ctx = fv::Tasks::GetContext ();
 
 ## Asynchronous mutex
 
-Asynchronous mutex is a mutex suitable for asynchronous environments. In contrast to std::mutex, there are the following features:
+Asynchronous mutex is a mutex suitable for asynchronous environments. In contrast to `std::mutex`, there are the following features:
 
 - Supports asynchronous wait locking
 - Locking and unlocking do not require the same thread
@@ -49,4 +49,41 @@ To know if it is locked:
 
 ```cpp
 _mtx.IsLocked ();
+```
+
+## Asynchronous semaphore
+
+An asynchronous semaphore is a semaphore suitable for asynchrony.  In contrast to the library's `std::counting_semaphore`, there are the following features:
+
+- Supports asynchronous wait for acquire
+
+Create semaphore:
+
+```cpp
+AsyncSemaphore _sema { 1 }; // Parameter means the initial number of resources
+```
+
+Acquire resources:
+
+```cpp
+// try acquire resources
+bool _acq = _sema.TryAcquire ();
+
+// asynchronous acquire resources
+co_await _mtx.Acquire ();
+
+// asynchronous timeout acquire resources
+bool _acq = co_await _mtx.Acquire (std::chrono::seconds (1));
+```
+
+Release resources:
+
+```cpp
+_mtx.Release ();
+```
+
+Get the count of available resources:
+
+```cpp
+_mtx.GetResCount ();
 ```

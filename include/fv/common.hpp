@@ -5,7 +5,6 @@
 
 #include <chrono>
 #include <mutex>
-#include <semaphore>
 #include <string>
 #include <functional>
 #include <unordered_map>
@@ -79,7 +78,7 @@ struct AsyncMutex {
 	AsyncMutex (bool _init_locked = false): m_locked (_init_locked) {}
 
 	bool IsLocked () {
-		std::unique_lock _ul { m_mtx, std::defer_lock };
+		std::unique_lock _ul { m_mtx };
 		return m_locked;
 	}
 
@@ -142,31 +141,65 @@ private:
 
 
 struct AsyncSemaphore {
-	AsyncSemaphore (int _init_count): m_sp (_init_count) {}
-	void Release () { m_sp.release (); }
-	bool TryAcquire () { return m_sp.try_acquire (); }
-	void Acquire () { m_sp.acquire (); }
-	Task<void> AcquireAsync () {
-		while (!m_sp.try_acquire ()) {
-			asio::steady_timer timer (co_await asio::this_coro::executor);
-			timer.expires_after (std::chrono::milliseconds (1));
-			co_await timer.async_wait (UseAwaitable);
+	AsyncSemaphore (size_t _init_count = 1): m_count (_init_count) {}
+
+	size_t GetResCount () {
+		std::unique_lock _ul { m_mtx };
+		return m_count;
+	}
+
+	bool TryAcquire () {
+		std::unique_lock _ul { m_mtx };
+		if (m_count > 0) {
+			--m_count;
+			return true;
+		} else {
+			return false;
 		}
 	}
-	Task<bool> AcquireForAsync (TimeSpan _span) { co_return co_await AcquireUntilAsync (std::chrono::system_clock::now () + _span); }
-	Task<bool> AcquireUntilAsync (std::chrono::system_clock::time_point _until) {
-		while (!m_sp.try_acquire ()) {
-			if (std::chrono::system_clock::now () >= _until)
-				co_return false;
-			asio::steady_timer timer (co_await asio::this_coro::executor);
-			timer.expires_after (std::chrono::milliseconds (1));
-			co_await timer.async_wait (UseAwaitable);
+
+	Task<void> Acquire () {
+		std::unique_lock _ul { m_mtx, std::defer_lock };
+		while (true) {
+			_ul.lock ();
+			if (m_count > 0) {
+				--m_count;
+				co_return;
+			}
+			_ul.unlock ();
+			co_await _delay (std::chrono::milliseconds (1));
 		}
-		co_return true;
+	}
+
+	Task<bool> Acquire (TimeSpan _timeout) {
+		std::unique_lock _ul { m_mtx, std::defer_lock };
+		auto _elapsed = std::chrono::system_clock::now () + _timeout;
+		while (_elapsed > std::chrono::system_clock::now ()) {
+			_ul.lock ();
+			if (m_count > 0) {
+				--m_count;
+				co_return true;
+			}
+			_ul.unlock ();
+			co_await _delay (std::chrono::milliseconds (1));
+		}
+		co_return false;
+	}
+
+	void Release () {
+		std::unique_lock _ul { m_mtx };
+		++m_count;
 	}
 
 private:
-	std::counting_semaphore<> m_sp;
+	static Task<void> _delay (TimeSpan _dt) {
+		asio::steady_timer timer (co_await asio::this_coro::executor);
+		timer.expires_after (_dt);
+		co_await timer.async_wait (UseAwaitable);
+	}
+
+	size_t m_count;
+	std::mutex m_mtx;
 };
 
 struct CancelToken {
@@ -276,7 +309,7 @@ struct AsyncTimer {
 	~AsyncTimer () { Cancel (); }
 
 	Task<bool> WaitTimeoutAsync (TimeSpan _elapse) {
-		co_return !co_await m_sema.AcquireForAsync (_elapse);
+		co_return !co_await m_sema.Acquire (_elapse);
 	}
 
 	template<typename F>

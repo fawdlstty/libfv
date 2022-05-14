@@ -11,6 +11,8 @@
 namespace fv {
 inline std::string _to_lower (std::string _s) { std::transform (_s.begin (), _s.end (), _s.begin (), ::tolower); return _s; }
 
+
+
 inline std::string _trim (std::string _s) {
 	size_t _start = 0, _stop = _s.size ();
 	while (_start < _stop) {
@@ -27,6 +29,8 @@ inline std::string _trim (std::string _s) {
 	}
 	return _s.substr (_start, _stop - _start);
 };
+
+
 
 inline std::string random_str (size_t _len) {
 	static const std::string s_chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -58,6 +62,8 @@ inline std::string percent_encode (std::string_view data) {
 	}
 	return ret;
 }
+
+
 
 inline std::string base64_encode (std::string_view data) {
 	static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

@@ -78,6 +78,11 @@ private:
 struct AsyncMutex {
 	AsyncMutex (bool _init_locked = false): m_locked (_init_locked) {}
 
+	bool IsLocked () {
+		std::unique_lock _ul { m_mtx, std::defer_lock };
+		return m_locked;
+	}
+
 	bool TryLock () {
 		std::unique_lock _ul { m_mtx };
 		if (!m_locked) {
@@ -101,18 +106,19 @@ struct AsyncMutex {
 		}
 	}
 
-	Task<void> Lock (TimeSpan _timeout) {
+	Task<bool> Lock (TimeSpan _timeout) {
 		std::unique_lock _ul { m_mtx, std::defer_lock };
 		auto _elapsed = std::chrono::system_clock::now () + _timeout;
 		while (_elapsed > std::chrono::system_clock::now ()) {
 			_ul.lock ();
 			if (!m_locked) {
 				m_locked = true;
-				co_return;
+				co_return true;
 			}
 			_ul.unlock ();
 			co_await _delay (std::chrono::milliseconds (1));
 		}
+		co_return false;
 	}
 
 	void Unlock () {

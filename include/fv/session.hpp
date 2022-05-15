@@ -47,7 +47,7 @@ struct Session {
 			_conn = std::shared_ptr<IConn> (new TcpConn { Tasks::GetContext () });
 		}
 
-		// TODO
+		//// cancel
 		//AsyncTimer _timer {};
 		//if (std::chrono::duration_cast<std::chrono::nanoseconds> (Config::ConnectTimeout).count () > 0) {
 		//	_timer.WaitCallback (Config::ConnectTimeout, [_tconn = std::weak_ptr (_conn)] ()->Task<void> {
@@ -70,7 +70,8 @@ struct Session {
 		auto [_schema, _host, _port, _path] = _parse_url (_r.Url);
 		_r.Schema = _schema;
 		_r.UrlPath = _path;
-		// TODO
+
+		//// cancel
 		//AsyncTimer _timer {};
 		//if (std::chrono::duration_cast<std::chrono::nanoseconds> (_r.Timeout).count () > 0) {
 		//	_timer.WaitCallback (_r.Timeout, [_tconn = std::weak_ptr (Conn)] ()->Task<void> {

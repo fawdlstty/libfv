@@ -4,9 +4,10 @@
 
 
 #include <chrono>
+#include <functional>
 #include <mutex>
 #include <string>
-#include <functional>
+#include <thread>
 #include <unordered_map>
 
 #ifdef ASIO_STANDALONE
@@ -120,6 +121,19 @@ struct AsyncMutex {
 		co_return false;
 	}
 
+	void LockSync () {
+		std::unique_lock _ul { m_mtx, std::defer_lock };
+		while (true) {
+			_ul.lock ();
+			if (!m_locked) {
+				m_locked = true;
+				return;
+			}
+			_ul.unlock ();
+			std::this_thread::sleep_for (std::chrono::milliseconds (1));
+		}
+	}
+
 	void Unlock () {
 		std::unique_lock _ul { m_mtx };
 		if (!m_locked)
@@ -226,7 +240,7 @@ struct Tasks {
 		} else if constexpr (std::is_same<TRet, Task<void>>::value) {
 			asio::co_spawn (*m_ctx, std::forward<F> (f), asio::detached);
 		} else {
-			static_assert (std::is_void<TRet>::value || std::is_same<TRet, Task<void>>::value, "返回类型只能为 void 或 Task<void>");
+			static_assert (std::is_void<TRet>::value || std::is_same<TRet, Task<void>>::value, "Unsupported returns type");
 		}
 	}
 
@@ -305,35 +319,39 @@ private:
 };
 
 struct AsyncTimer {
-	AsyncTimer () { m_sema.Acquire (); }
+	AsyncTimer () { }
 	~AsyncTimer () { Cancel (); }
 
 	Task<bool> WaitTimeoutAsync (TimeSpan _elapse) {
-		co_return !co_await m_sema.Acquire (_elapse);
+		co_return !co_await m_mtx.Lock (_elapse);
 	}
 
 	template<typename F>
 	void WaitCallback (TimeSpan _elapse, F _cb) {
+		if (!m_mtx.IsLocked ())
+			m_mtx.LockSync ();
 		Tasks::RunAsync ([this] (TimeSpan _elapse, F _cb) -> Task<void> {
-			if (co_await WaitTimeoutAsync (_elapse)) {
-				using _TRet = typename std::decay<decltype (_cb ())>;
-				if constexpr (std::is_same<_TRet, void>::value) {
+			bool _lock = co_await m_mtx.Lock (_elapse);
+			if (!_lock) {
+				using TRet = typename std::decay<decltype (_cb ())>;
+				if constexpr (std::is_same<TRet, void>::value) {
 					_cb ();
-				} else if constexpr (std::is_same<_TRet, Task<void>>::value) {
+				} else if constexpr (std::is_same<TRet, Task<void>>::value) {
 					co_await _cb ();
 				} else {
-					throw Exception ("不支持的回调函数返回类型");
+					static_assert (std::is_void<TRet>::value || std::is_same<TRet, Task<void>>::value, "Unsupported returns type");
 				}
 			}
 		}, _elapse, _cb);
 	}
 
 	void Cancel () {
-		m_sema.Release ();
+		if (m_mtx.IsLocked ())
+			m_mtx.Unlock ();
 	}
 
 private:
-	AsyncSemaphore m_sema { 1 };
+	AsyncMutex m_mtx {};
 };
 }
 

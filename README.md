@@ -16,12 +16,6 @@ In addition to providing network functions, the library also provides a variety 
 
 [Github online view](docs/)
 
-## Roadmap
+## License
 
-- [x] HTTP(S) Server/Client
-- [x] TCP Server/Client
-- [x] SSL Client
-- [x] Websocket Server/Client
-- [ ] UDP Server/Client
-- [ ] Cancellation
-- [ ] Dns Cache
+MIT

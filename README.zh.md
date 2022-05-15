@@ -25,6 +25,7 @@ libfv 是 C++20 纯头文件网络库，支持 TCP/SSL/Http/websocket 服务器�
 - Dns Cache
 - Websocket reconnect
 - Websocket auto ping
+- Session reconnect
 
 ## License
 

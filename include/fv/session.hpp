@@ -57,8 +57,15 @@ struct Session {
 		//	});
 		//}
 
-		// connect
-		co_await _conn->Connect (_server_ip != "" ? _server_ip : _host, _port);
+		for (size_t i = 0; i < 3; i++) {
+			try {
+				// connect
+				co_await _conn->Connect (_server_ip != "" ? _server_ip : _host, _port);
+				break;
+			} catch (...) {
+			}
+			co_await _conn->Reconnect ();
+		}
 
 		//_timer.Cancel ();
 		if (!_conn->IsConnect ())

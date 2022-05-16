@@ -14,9 +14,12 @@
 
 namespace fv {
 struct IConn {
+	std::string m_host = "", m_port = "";
+
 	IConn () = default;
 	virtual ~IConn () = default;
 	virtual Task<void> Connect (std::string _host, std::string _port) = 0;
+	virtual Task<void> Reconnect () = 0;
 	virtual bool IsConnect () = 0;
 	virtual void Close () = 0;
 	virtual Task<void> Send (char *_data, size_t _size) = 0;
@@ -43,6 +46,7 @@ struct TcpConn: public IConn {
 
 	virtual ~TcpConn () { Cancel (); Close (); }
 	Task<void> Connect (std::string _host, std::string _port) override;
+	Task<void> Reconnect () override;
 	bool IsConnect () override { return Socket.is_open (); }
 	void Close () override;
 	Task<void> Send (char *_data, size_t _size) override;
@@ -61,7 +65,8 @@ struct TcpConn2: public IConn {
 	TcpConn2 (Tcp::socket _sock);
 
 	virtual ~TcpConn2 () { Cancel (); Close (); }
-	Task<void> Connect (std::string _host, std::string _port) { throw Exception ("Cannot use connect from TcpConn2 class"); }
+	Task<void> Connect (std::string _host, std::string _port) override { throw Exception ("Cannot use connect from TcpConn2 class"); }
+	Task<void> Reconnect () override { throw Exception ("Cannot use reconnect from TcpConn2 class"); }
 	bool IsConnect () override { return Socket.is_open (); }
 	void Close () override;
 	Task<void> Send (char *_data, size_t _size) override;
@@ -81,6 +86,7 @@ struct SslConn: public IConn {
 	SslConn (IoContext &_ctx): ResolverImpl (_ctx), SslSocket (_ctx, SslCtx) {}
 	virtual ~SslConn () { Cancel (); Close (); }
 	Task<void> Connect (std::string _host, std::string _port) override;
+	Task<void> Reconnect () override;
 	bool IsConnect () override { return SslSocket.next_layer ().is_open (); }
 	void Close () override;
 	Task<void> Send (char *_data, size_t _size) override;

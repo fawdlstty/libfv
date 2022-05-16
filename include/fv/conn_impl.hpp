@@ -76,18 +76,23 @@ inline Task<std::string> IConn::ReadSome () {
 
 
 inline Task<void> TcpConn::Connect (std::string _host, std::string _port) {
+	m_host = _host;
+	m_port = _port;
+	co_await Reconnect ();
+}
+
+inline Task<void> TcpConn::Reconnect () {
 	Close ();
 	std::regex _r { "(\\d+\\.){3}\\d+" };
-	if (std::regex_match (_host, _r)) {
-		uint16_t _sport = (uint16_t) std::stoi (_port);
-		co_await Socket.async_connect (Tcp::endpoint { asio::ip::address::from_string (_host), _sport }, UseAwaitable);
+	if (std::regex_match (m_host, _r)) {
+		uint16_t _sport = (uint16_t) std::stoi (m_port);
+		co_await Socket.async_connect (Tcp::endpoint { asio::ip::address::from_string (m_host), _sport }, UseAwaitable);
 	} else {
-		std::string _sport = fmt::format ("{}", _port);
-		auto _it = co_await ResolverImpl.async_resolve (_host, _sport, UseAwaitable);
+		auto _it = co_await ResolverImpl.async_resolve (m_host, m_port, UseAwaitable);
 		co_await Socket.async_connect (_it->endpoint (), UseAwaitable);
 	}
 	if (!Socket.is_open ())
-		throw Exception (fmt::format ("无法连接至目标服务器 {}", _host));
+		throw Exception (fmt::format ("无法连接至目标服务器 {}", m_host));
 	if (Config::NoDelay)
 		Socket.set_option (Tcp::no_delay { true });
 }
@@ -159,20 +164,25 @@ inline Task<size_t> TcpConn2::RecvImpl (char *_data, size_t _size) {
 
 
 inline Task<void> SslConn::Connect (std::string _host, std::string _port) {
+	m_host = _host;
+	m_port = _port;
+	co_await Reconnect ();
+}
+
+inline Task<void> SslConn::Reconnect () {
 	Close ();
 	SslSocket.set_verify_mode (Ssl::verify_peer);
 	SslSocket.set_verify_callback (Config::SslVerifyFunc);
 	std::regex _r { "(\\d+\\.){3}\\d+" };
-	if (std::regex_match (_host, _r)) {
-		uint16_t _sport = (uint16_t) std::stoi (_port);
-		co_await SslSocket.next_layer ().async_connect (Tcp::endpoint { asio::ip::address::from_string (_host), _sport }, UseAwaitable);
+	if (std::regex_match (m_host, _r)) {
+		uint16_t _sport = (uint16_t) std::stoi (m_port);
+		co_await SslSocket.next_layer ().async_connect (Tcp::endpoint { asio::ip::address::from_string (m_host), _sport }, UseAwaitable);
 	} else {
-		std::string _sport = fmt::format ("{}", _port);
-		auto _it = co_await ResolverImpl.async_resolve (_host, _sport, UseAwaitable);
+		auto _it = co_await ResolverImpl.async_resolve (m_host, m_port, UseAwaitable);
 		co_await SslSocket.next_layer ().async_connect (_it->endpoint (), UseAwaitable);
 	}
 	if (!SslSocket.next_layer ().is_open ())
-		throw Exception (fmt::format ("Cannot connect to server {}", _host));
+		throw Exception (fmt::format ("Cannot connect to server {}", m_host));
 	if (Config::NoDelay)
 		SslSocket.next_layer ().set_option (Tcp::no_delay { true });
 	co_await SslSocket.async_handshake (Ssl::stream_base::client, UseAwaitable);

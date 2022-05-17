@@ -22,6 +22,7 @@ struct Config {
 	inline static SslCheckCb SslVerifyFunc = [] (bool preverified, Ssl::verify_context &ctx) { return true; };
 	inline static TimeSpan ConnectTimeout = std::chrono::seconds (2);
 	inline static bool NoDelay = false;
+	inline static TimeSpan WebsocketAutoPing = std::chrono::minutes (1);
 };
 
 

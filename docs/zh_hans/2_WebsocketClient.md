@@ -10,7 +10,7 @@ std::shared_ptr<fv::WsConn> _conn = co_await fv::ConnectWS ("wss://t.cn/ws");
 
 ```cpp
 // 抛异常说明连接断开
-// 能接收到三种类型，`fv::WsType::Text`，`fv::WsType::Binary`，`fv::WsType::Pong`
+// 能接收到两种类型，`fv::WsType::Text`，`fv::WsType::Binary`
 while (true) {
 	auto [_data, _type] = co_await _conn->Recv ();
 	std::cout << _data << std::endl;
@@ -24,7 +24,6 @@ while (true) {
 std::string _str = "hello";
 co_await _conn->SendText (_str.data (), _str.size ());
 co_await _conn->SendBinary (_str.data (), _str.size ());
-co_await _conn->SendPing ();
 ```
 
 ## 关闭连接

@@ -218,6 +218,20 @@ inline void SslConn::Cancel () {
 
 
 
+inline WsConn::WsConn (std::shared_ptr<IConn> _parent, bool _is_client): Parent (_parent), IsClient (_is_client) {
+	fv::Tasks::RunAsync ([_wptr = std::weak_ptr (shared_from_this ())] () -> Task<void> {
+		while (true) {
+			co_await Tasks::Delay (Config::WebsocketAutoPing);
+			auto _ptr = _wptr.lock ();
+			if (!_ptr)
+				co_return;
+			_ptr->_Send (nullptr, 0, WsType::Ping);
+		}
+	});
+}
+
+
+
 inline Task<std::tuple<std::string, WsType>> WsConn::Recv () {
 	std::vector<uint8_t> _tmp = co_await Parent->ReadCountVec (2);
 	bool _is_eof = (_tmp [0] & 0x80) != 0;
@@ -229,7 +243,8 @@ inline Task<std::tuple<std::string, WsType>> WsConn::Recv () {
 		co_await _Send (nullptr, 0, WsType::Pong);
 		co_return co_await Recv ();
 	} else if (_type == WsType::Pong) {
-		co_return std::make_tuple (std::string (""), WsType::Pong);
+		//co_return std::make_tuple (std::string (""), WsType::Pong);
+		co_return co_await Recv ();
 	} else if (_type == WsType::Text || _type == WsType::Binary) {
 		bool _mask = _tmp [1] & 0x80;
 		long _payload_length = (long) (_tmp [1] & 0x7f);

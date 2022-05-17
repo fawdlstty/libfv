@@ -75,4 +75,7 @@ fv::Config::NoDelay = true;
 
 // Setting the global HTTP header (client)
 fv::Request::SetDefaultHeader ("User-Agent", "libfv-0.0.1");
+
+// Setting the global Websocket ping interval
+fv::Config::WebsocketAutoPing = std::chrono::minutes (1);
 ```

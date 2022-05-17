@@ -75,4 +75,7 @@ fv::Config::NoDelay = true;
 
 // 设置全局 http 头
 fv::Request::SetDefaultHeader ("User-Agent", "libfv-0.0.1");
+
+// 设置全局 Websocket 自动 ping 时间间隔
+fv::Config::WebsocketAutoPing = std::chrono::minutes (1);
 ```

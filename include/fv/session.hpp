@@ -37,6 +37,7 @@ inline void _OptionApplys (Request &_r, _Op1 _op1, _Ops ..._ops) { _OptionApply 
 struct Session {
 	std::shared_ptr<IConn> Conn;
 
+	Session () {}
 	Session (std::shared_ptr<IConn> _conn): Conn (_conn) {}
 	static Task<Session> FromUrl (std::string _url, std::string _server_ip = "") {
 		auto [_schema, _host, _port, _path] = _parse_url (_url);

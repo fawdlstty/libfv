@@ -14,7 +14,7 @@
 
 namespace fv {
 template<TFormOption _Op1>
-inline void _OptionApply (Request &_r, _Op1 _op) { throw Exception ("暂未支持目标类型特例化"); }
+inline void _OptionApply (Request &_r, _Op1 _op) { throw Exception ("Unsupported dest type template instance"); }
 template<> inline void _OptionApply (Request &_r, timeout _t) { _r.Timeout = _t.m_exp; }
 template<> inline void _OptionApply (Request &_r, server _s) { _r.Server = _s.m_ip; }
 template<> inline void _OptionApply (Request &_r, header _hh) { _r.Headers [_hh.m_key] = _hh.m_value; }
@@ -39,6 +39,10 @@ struct Session {
 
 	Session () {}
 	Session (std::shared_ptr<IConn> _conn): Conn (_conn) {}
+
+	bool IsValid () { return Conn.get () != nullptr; }
+	bool IsConnect () { return IsValid () && Conn->IsConnect (); }
+
 	static Task<Session> FromUrl (std::string _url, std::string _server_ip = "") {
 		auto [_schema, _host, _port, _path] = _parse_url (_url);
 		std::shared_ptr<IConn> _conn;
@@ -58,15 +62,8 @@ struct Session {
 		//	});
 		//}
 
-		for (size_t i = 0; i < 3; i++) {
-			try {
-				// connect
-				co_await _conn->Connect (_server_ip != "" ? _server_ip : _host, _port);
-				break;
-			} catch (...) {
-			}
-			co_await _conn->Reconnect ();
-		}
+		// connect
+		co_await _conn->Connect (_server_ip != "" ? _server_ip : _host, _port);
 
 		//_timer.Cancel ();
 		if (!_conn->IsConnect ())
@@ -75,6 +72,8 @@ struct Session {
 	}
 
 	Task<Response> DoMethod (Request _r) {
+		if (!IsValid ())
+			throw Exception ("Session is not valid");
 		auto [_schema, _host, _port, _path] = _parse_url (_r.Url);
 		_r.Schema = _schema;
 		_r.UrlPath = _path;
@@ -92,8 +91,17 @@ struct Session {
 		// generate data
 		std::string _data = _r.Serilize (_host, _path);
 
-		// send
-		co_await Conn->Send (_data.data (), _data.size ());
+		for (size_t i = 0; i < 2; i++) {
+			try {
+				// send
+				co_await Conn->Send (_data.data (), _data.size ());
+				break;
+			} catch (...) {
+				if (i == 1)
+					throw;
+			}
+			co_await Conn->Reconnect ();
+		}
 
 		// recv
 		Response _ret = co_await Response::GetFromConn (Conn);

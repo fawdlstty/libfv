@@ -131,7 +131,7 @@ inline std::tuple<std::string, std::string, std::string, std::string> _parse_url
 		} else if (_schema == "https" || _schema == "wss") {
 			_port = "443";
 		} else {
-			throw Exception ("Î´Öª¶Ë¿Ú");
+			throw Exception ("Unknown Port");
 		}
 	}
 	return { _schema, _host, _port, _path };

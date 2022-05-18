@@ -92,7 +92,7 @@ inline Task<void> TcpConn::Reconnect () {
 		co_await Socket.async_connect (_it->endpoint (), UseAwaitable);
 	}
 	if (!Socket.is_open ())
-		throw Exception (fmt::format ("无法连接至目标服务器 {}", m_host));
+		throw Exception (fmt::format ("Cannot connect to server {}", m_host));
 	if (Config::NoDelay)
 		Socket.set_option (Tcp::no_delay { true });
 }

@@ -29,7 +29,7 @@ struct TcpServer {
 			if (Clients.contains (_id)) {
 				auto _conn = Clients [_id];
 				_ul.unlock ();
-				co_await Clients [_id]->Send (_data, _size);
+				co_await _conn->Send (_data, _size);
 				co_return true;
 			}
 		} catch (...) {

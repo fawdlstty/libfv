@@ -23,7 +23,7 @@ Asynchronous mutex is a mutex suitable for asynchronous environments. In contras
 Create mutex
 
 ```cpp
-AsyncMutex _mtx {}; // Pass the true argument to lock during initialization
+fv::AsyncMutex _mtx {}; // Pass the true argument to lock during initialization
 ```
 
 Lock:
@@ -48,7 +48,7 @@ _mtx.Unlock ();
 To know if it is locked:
 
 ```cpp
-_mtx.IsLocked ();
+bool _locked = _mtx.IsLocked ();
 ```
 
 ## Asynchronous semaphore
@@ -60,7 +60,7 @@ An asynchronous semaphore is a semaphore suitable for asynchrony.  In contrast t
 Create semaphore:
 
 ```cpp
-AsyncSemaphore _sema { 1 }; // Parameter means the initial number of resources
+fv::AsyncSemaphore _sema { 1 }; // Parameter means the initial number of resources
 ```
 
 Acquire resources:
@@ -85,5 +85,5 @@ _mtx.Release ();
 Get the count of available resources:
 
 ```cpp
-_mtx.GetResCount ();
+size_t _count = _mtx.GetResCount ();
 ```

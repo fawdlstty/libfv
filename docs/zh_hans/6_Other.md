@@ -23,7 +23,7 @@ boost::asio::io_context &_ctx = fv::Tasks::GetContext ();
 创建锁：
 
 ```cpp
-AsyncMutex _mtx {}; // 参数传 true 代表初始化时加锁
+fv::AsyncMutex _mtx {}; // 参数传 true 代表初始化时加锁
 ```
 
 加锁：
@@ -48,7 +48,7 @@ _mtx.Unlock ();
 获知是否已锁：
 
 ```cpp
-_mtx.IsLocked ();
+bool _locked = _mtx.IsLocked ();
 ```
 
 ## 异步信号量
@@ -60,7 +60,7 @@ _mtx.IsLocked ();
 创建信号量：
 
 ```cpp
-AsyncSemaphore _sema { 1 }; // 参数代表初始资源数
+fv::AsyncSemaphore _sema { 1 }; // 参数代表初始资源数
 ```
 
 获取资源：
@@ -85,5 +85,5 @@ _mtx.Release ();
 获知现有资源数：
 
 ```cpp
-_mtx.GetResCount ();
+size_t _count = _mtx.GetResCount ();
 ```

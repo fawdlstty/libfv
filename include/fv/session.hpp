@@ -183,36 +183,36 @@ struct Session {
 
 
 
-Task<Response> Head (std::string _url) {
+inline Task<Response> Head (std::string _url) {
 	Session _sess = co_await Session::FromUrl (_url, "");
 	co_return co_await _sess.DoMethod (Request { _url, MethodType::Head });
 }
 template<TOption ..._Ops>
-Task<Response> Head (std::string _url, _Ops ..._ops) {
+inline Task<Response> Head (std::string _url, _Ops ..._ops) {
 	Request _r { _url, MethodType::Head };
 	Session _sess = co_await Session::FromUrl (_url, _r.Server);
 	_OptionApplys (_r, _ops...);
 	co_return co_await _sess.DoMethod (_r);
 }
 
-Task<Response> Option (std::string _url) {
+inline Task<Response> Option (std::string _url) {
 	Session _sess = co_await Session::FromUrl (_url, "");
 	co_return co_await _sess.DoMethod (Request { _url, MethodType::Option });
 }
 template<TOption ..._Ops>
-Task<Response> Option (std::string _url, _Ops ..._ops) {
+inline Task<Response> Option (std::string _url, _Ops ..._ops) {
 	Request _r { _url, MethodType::Option };
 	Session _sess = co_await Session::FromUrl (_url, _r.Server);
 	_OptionApplys (_r, _ops...);
 	co_return co_await _sess.DoMethod (_r);
 }
 
-Task<Response> Get (std::string _url) {
+inline Task<Response> Get (std::string _url) {
 	Session _sess = co_await Session::FromUrl (_url, "");
 	co_return co_await _sess.DoMethod (Request { _url, MethodType::Get });
 }
 template<TOption ..._Ops>
-Task<Response> Get (std::string _url, _Ops ..._ops) {
+inline Task<Response> Get (std::string _url, _Ops ..._ops) {
 	Request _r { _url, MethodType::Get };
 	Session _sess = co_await Session::FromUrl (_url, _r.Server);
 	_OptionApplys (_r, _ops...);
@@ -220,14 +220,14 @@ Task<Response> Get (std::string _url, _Ops ..._ops) {
 }
 
 template<TFormOption ..._Ops>
-Task<Response> Post (std::string _url, _Ops ..._ops) {
+inline Task<Response> Post (std::string _url, _Ops ..._ops) {
 	Request _r { _url, MethodType::Post };
 	Session _sess = co_await Session::FromUrl (_url, _r.Server);
 	_OptionApplys (_r, _ops...);
 	co_return co_await _sess.DoMethod (_r);
 }
 template<TOption ..._Ops>
-Task<Response> Post (std::string _url, body_raw _data, _Ops ..._ops) {
+inline Task<Response> Post (std::string _url, body_raw _data, _Ops ..._ops) {
 	Request _r { _url, MethodType::Post };
 	Session _sess = co_await Session::FromUrl (_url, _r.Server);
 	_r.Headers ["Content-Type"] = _data.ContentType;
@@ -237,14 +237,14 @@ Task<Response> Post (std::string _url, body_raw _data, _Ops ..._ops) {
 }
 
 template<TFormOption ..._Ops>
-Task<Response> Put (std::string _url, _Ops ..._ops) {
+inline Task<Response> Put (std::string _url, _Ops ..._ops) {
 	Request _r { _url, MethodType::Put };
 	Session _sess = co_await Session::FromUrl (_url, _r.Server);
 	_OptionApplys (_r, _ops...);
 	co_return co_await _sess.DoMethod (_r);
 }
 template<TOption ..._Ops>
-Task<Response> Put (std::string _url, body_raw _data, _Ops ..._ops) {
+inline Task<Response> Put (std::string _url, body_raw _data, _Ops ..._ops) {
 	Request _r { _url, MethodType::Put };
 	Session _sess = co_await Session::FromUrl (_url, _r.Server);
 	_r.Headers ["Content-Type"] = _data.ContentType;
@@ -253,12 +253,12 @@ Task<Response> Put (std::string _url, body_raw _data, _Ops ..._ops) {
 	co_return co_await _sess.DoMethod (_r);
 }
 
-Task<Response> Delete (std::string _url) {
+inline Task<Response> Delete (std::string _url) {
 	Session _sess = co_await Session::FromUrl (_url, "");
 	co_return co_await _sess.DoMethod (Request { _url, MethodType::Delete });
 }
 template<TOption ..._Ops>
-Task<Response> Delete (std::string _url, _Ops ..._ops) {
+inline Task<Response> Delete (std::string _url, _Ops ..._ops) {
 	Request _r { _url, MethodType::Delete };
 	Session _sess = co_await Session::FromUrl (_url, _r.Server);
 	_OptionApplys (_r, _ops...);

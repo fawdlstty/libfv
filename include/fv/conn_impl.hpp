@@ -83,6 +83,7 @@ inline Task<void> TcpConn::Connect (std::string _host, std::string _port) {
 
 inline Task<void> TcpConn::Reconnect () {
 	Close ();
+	TmpData = "";
 	std::regex _r { "(\\d+\\.){3}\\d+" };
 	if (std::regex_match (m_host, _r)) {
 		uint16_t _sport = (uint16_t) std::stoi (m_port);
@@ -171,6 +172,7 @@ inline Task<void> SslConn::Connect (std::string _host, std::string _port) {
 
 inline Task<void> SslConn::Reconnect () {
 	Close ();
+	TmpData = "";
 	SslSocket.set_verify_mode (Ssl::verify_peer);
 	SslSocket.set_verify_callback (Config::SslVerifyFunc);
 	std::regex _r { "(\\d+\\.){3}\\d+" };

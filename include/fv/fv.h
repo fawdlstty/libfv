@@ -3,6 +3,16 @@
 
 
 
+//
+// Project Name:   libfv
+// Repository URL: https://github.com/fawdlstty/libfv
+// Author:         fawdlstty
+// License:        MIT
+// Version:        0.0.4
+//
+
+
+
 #include "base.hpp"
 #include "common.hpp"
 #include "common_funcs.hpp"

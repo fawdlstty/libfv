@@ -41,7 +41,7 @@ Task<void> test_client () {
 	fv::Session _sess = co_await fv::Session::FromUrl ("https://www.fawdlstty.com");
 	fv::Response _r = co_await _sess.Get ("https://www.fawdlstty.com");
 	std::cout << _r.Content.size () << '\n';
-	_r = co_await _sess.Get ("https://www.fawdlstty.com");
+	_r = co_await _sess.Post ("https://www.fawdlstty.com", fv::body_json ("{\"a\":\"b\"}"));
 	std::cout << _r.Content.size () << '\n';
 	//
 	std::this_thread::sleep_for (std::chrono::seconds (10));

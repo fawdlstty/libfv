@@ -14,18 +14,33 @@
 
 namespace fv {
 template<TFormOption _Op1>
-inline void _OptionApply (Request &_r, _Op1 _op) { throw Exception ("Unsupported dest type template instance"); }
-template<> inline void _OptionApply (Request &_r, timeout _t) { _r.Timeout = _t.m_exp; }
-template<> inline void _OptionApply (Request &_r, server _s) { _r.Server = _s.m_ip; }
-template<> inline void _OptionApply (Request &_r, header _hh) { _r.Headers [_hh.m_key] = _hh.m_value; }
-template<> inline void _OptionApply (Request &_r, authorization _auth) { _r.Headers [_auth.m_key] = _auth.m_value; }
-template<> inline void _OptionApply (Request &_r, connection _co) { _r.Headers [_co.m_key] = _co.m_value; }
-template<> inline void _OptionApply (Request &_r, content_type _ct) { _r.Headers [_ct.m_key] = _ct.m_value; }
-template<> inline void _OptionApply (Request &_r, referer _re) { _r.Headers [_re.m_key] = _re.m_value; }
-template<> inline void _OptionApply (Request &_r, user_agent _ua) { _r.Headers [_ua.m_key] = _ua.m_value; }
-template<> inline void _OptionApply (Request &_r, url_kv _pd) { _r.QueryItems.push_back (_pd); }
-template<> inline void _OptionApply (Request &_r, body_kv _pd) { _r.ContentItems.push_back (_pd); }
-template<> inline void _OptionApply (Request &_r, body_file _pf) { _r.ContentItems.push_back (_pf); }
+inline void _OptionApply (Request &_r, _Op1 &_op) { throw Exception ("Unsupported dest type template instance"); }
+template<> inline void _OptionApply (Request &_r, timeout &_t) { _r.Timeout = _t.m_exp; }
+template<> inline void _OptionApply (Request &_r, server &_s) { _r.Server = _s.m_ip; }
+template<> inline void _OptionApply (Request &_r, header &_hh) { _r.Headers [_hh.m_key] = _hh.m_value; }
+template<> inline void _OptionApply (Request &_r, authorization &_auth) { _r.Headers [_auth.m_key] = _auth.m_value; }
+template<> inline void _OptionApply (Request &_r, connection &_co) { _r.Headers [_co.m_key] = _co.m_value; }
+template<> inline void _OptionApply (Request &_r, content_type &_ct) { _r.Headers [_ct.m_key] = _ct.m_value; }
+template<> inline void _OptionApply (Request &_r, referer &_re) { _r.Headers [_re.m_key] = _re.m_value; }
+template<> inline void _OptionApply (Request &_r, user_agent &_ua) { _r.Headers [_ua.m_key] = _ua.m_value; }
+template<> inline void _OptionApply (Request &_r, url_kv &_pd) { _r.QueryItems.push_back (_pd); }
+template<> inline void _OptionApply (Request &_r, body_kv &_pd) { _r.ContentItems.push_back (_pd); }
+template<> inline void _OptionApply (Request &_r, body_file &_pf) { _r.ContentItems.push_back (_pf); }
+
+template<TBodyOption _Op1>
+inline void _OptionApplyBody (Request &_r, _Op1 &_op) { throw Exception ("Unsupported dest type template instance"); }
+template<> inline void _OptionApplyBody (Request &_r, body_kvs &_body) {
+	_r.Headers ["Content-Type"] = "application/x-www-form-urlencoded";
+	_r.Content = _body.Content;
+}
+template<> inline void _OptionApplyBody (Request &_r, body_json &_body) {
+	_r.Headers ["Content-Type"] = "application/json";
+	_r.Content = _body.Content;
+}
+template<> inline void _OptionApplyBody (Request &_r, body_raw &_body) {
+	_r.Headers ["Content-Type"] = _body.ContentType;
+	_r.Content = _body.Content;
+}
 
 template<TFormOption _Op1>
 inline void _OptionApplys (Request &_r, _Op1 _op1) { _OptionApply (_r, _op1); }
@@ -145,11 +160,16 @@ struct Session {
 		_OptionApplys (_r, _ops...);
 		co_return co_await DoMethod (_r);
 	}
-	template<TOption ..._Ops>
-	Task<Response> Post (std::string _url, body_raw _data, _Ops ..._ops) {
+	template<TBodyOption _Body>
+	Task<Response> Post (std::string _url, _Body _body) {
 		Request _r { _url, MethodType::Post };
-		_r.Headers ["Content-Type"] = _data.ContentType;
-		_r.Content = _data.Content;
+		_OptionApplyBody (_r, _body);
+		co_return co_await DoMethod (_r);
+	}
+	template<TBodyOption _Body, TOption ..._Ops>
+	Task<Response> Post (std::string _url, _Body _body, _Ops ..._ops) {
+		Request _r { _url, MethodType::Post };
+		_OptionApplyBody (_r, _body);
 		_OptionApplys (_r, _ops...);
 		co_return co_await DoMethod (_r);
 	}
@@ -160,11 +180,16 @@ struct Session {
 		_OptionApplys (_r, _ops...);
 		co_return co_await DoMethod (_r);
 	}
-	template<TOption ..._Ops>
-	Task<Response> Put (std::string _url, body_raw _data, _Ops ..._ops) {
+	template<TBodyOption _Body>
+	Task<Response> Put (std::string _url, _Body _body) {
 		Request _r { _url, MethodType::Put };
-		_r.Headers ["Content-Type"] = _data.ContentType;
-		_r.Content = _data.Content;
+		_OptionApplyBody (_r, _body);
+		co_return co_await DoMethod (_r);
+	}
+	template<TBodyOption _Body, TOption ..._Ops>
+	Task<Response> Put (std::string _url, _Body _body, _Ops ..._ops) {
+		Request _r { _url, MethodType::Put };
+		_OptionApplyBody (_r, _body);
 		_OptionApplys (_r, _ops...);
 		co_return co_await DoMethod (_r);
 	}
@@ -226,12 +251,18 @@ inline Task<Response> Post (std::string _url, _Ops ..._ops) {
 	_OptionApplys (_r, _ops...);
 	co_return co_await _sess.DoMethod (_r);
 }
-template<TOption ..._Ops>
-inline Task<Response> Post (std::string _url, body_raw _data, _Ops ..._ops) {
+template<TBodyOption _Body>
+inline Task<Response> Post (std::string _url, _Body _body) {
 	Request _r { _url, MethodType::Post };
 	Session _sess = co_await Session::FromUrl (_url, _r.Server);
-	_r.Headers ["Content-Type"] = _data.ContentType;
-	_r.Content = _data.Content;
+	_OptionApplyBody (_r, _body);
+	co_return co_await _sess.DoMethod (_r);
+}
+template<TBodyOption _Body, TOption ..._Ops>
+inline Task<Response> Post (std::string _url, _Body _body, _Ops ..._ops) {
+	Request _r { _url, MethodType::Post };
+	Session _sess = co_await Session::FromUrl (_url, _r.Server);
+	_OptionApplyBody (_r, _body);
 	_OptionApplys (_r, _ops...);
 	co_return co_await _sess.DoMethod (_r);
 }
@@ -243,12 +274,18 @@ inline Task<Response> Put (std::string _url, _Ops ..._ops) {
 	_OptionApplys (_r, _ops...);
 	co_return co_await _sess.DoMethod (_r);
 }
-template<TOption ..._Ops>
-inline Task<Response> Put (std::string _url, body_raw _data, _Ops ..._ops) {
+template<TBodyOption _Body>
+inline Task<Response> Put (std::string _url, _Body _body) {
 	Request _r { _url, MethodType::Put };
 	Session _sess = co_await Session::FromUrl (_url, _r.Server);
-	_r.Headers ["Content-Type"] = _data.ContentType;
-	_r.Content = _data.Content;
+	_OptionApplyBody (_r, _body);
+	co_return co_await _sess.DoMethod (_r);
+}
+template<TBodyOption _Body, TOption ..._Ops>
+inline Task<Response> Put (std::string _url, _Body _body, _Ops ..._ops) {
+	Request _r { _url, MethodType::Put };
+	Session _sess = co_await Session::FromUrl (_url, _r.Server);
+	_OptionApplyBody (_r, _body);
 	_OptionApplys (_r, _ops...);
 	co_return co_await _sess.DoMethod (_r);
 }

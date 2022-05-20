@@ -99,6 +99,26 @@ protected:
 
 
 
+struct SslConn2: public IConn {
+	Ssl::stream<Tcp::socket> SslSocket;
+	int64_t Id = -1;
+
+	SslConn2 (Ssl::stream<Tcp::socket> _sock);
+
+	virtual ~SslConn2 () { Cancel (); Close (); }
+	Task<void> Connect (std::string _host, std::string _port) override { throw Exception ("Cannot use connect from SslConn2 class"); }
+	Task<void> Reconnect () override { throw Exception ("Cannot use reconnect from SslConn2 class"); }
+	bool IsConnect () override { return SslSocket.next_layer ().is_open (); }
+	void Close () override;
+	Task<void> Send (char *_data, size_t _size) override;
+	void Cancel () override { SslSocket.next_layer ().cancel (); }
+
+protected:
+	Task<size_t> RecvImpl (char *_data, size_t _size) override;
+};
+
+
+
 struct WsConn: public std::enable_shared_from_this<WsConn> {
 	std::shared_ptr<IConn> Parent;
 	bool IsClient = true;

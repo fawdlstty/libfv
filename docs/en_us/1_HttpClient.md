@@ -31,6 +31,12 @@ fv::Response _r2 = co_await fv::Post ("https://t.cn", fv::body_kv ("a", "aaa"), 
 // Commit file
 fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_file ("a", "filename.txt", "content..."));
 
+// Send HttpPost request with Key-Value pair data
+fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_kvs ("a=b&c=d"));
+
+// Send HttpPost request with json data
+fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_json ("{\"a\":\"b\"}"));
+
 // Send HttpPost request with raw data
 fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_raw ("application/octet-stream", "aaa"));
 ```

@@ -16,11 +16,11 @@ In addition to providing network functions, the library also provides a variety 
 
 [Github Online Document](docs/)
 
-## Why libfv
+## Description
 
 Compared with other network libraries, libfv's biggest advantage is that it supports pure asynchronous development mode. C++ is a very generational language for developers, mainly because C++20 introduced the asynchronous coroutine syntax, and the support for libraries has been slow to catch up, leaving asynchronous development options limited. libfv is one of the options of the new C++ asynchronous coroutine network development framework, which can make asynchronous coroutine development more pleasant from the library level.  
 
-## Scene
+## Why libfv
 
 The older HTTP libraries of C++ have two main implementations. The first is synchronous HTTP network access, such as code like this:
 
@@ -41,7 +41,9 @@ HttpGet ("https://t.cn", [] (Response _r) {
 });
 ```
 
-This way to solve the threading problem, that is, dozens or hundreds of requests can be launched at the same time, only a small amount or a thread on the line, HTTP library internal implementation of the request internal management, after receiving the response to the request, call the callback function, so as to achieve efficient processing of the request.  The problem with this approach is that if we need to forward the content of the request to the next request, this can cause a callback hell problem, such as code like this:
+This way to solve the threading problem, that is, dozens or hundreds of requests can be launched at the same time, only a small amount or a thread on the line, HTTP library internal implementation of the request internal management, after receiving the response to the request, call the callback function, so as to achieve efficient processing of the request.
+
+The problem with this approach is that if we need to forward the content of the request to the next request, this can cause a callback hell problem, such as code like this:
 
 ```cpp
 // pseudocode

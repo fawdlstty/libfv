@@ -53,6 +53,14 @@ struct body_file {
 	std::string Name, FileName, FileContent;
 	body_file (std::string _name, std::string _filename, std::string _content): Name (_name), FileName (_filename), FileContent (_content) {}
 };
+struct body_kvs {
+	std::string Content;
+	body_kvs (std::string _content): Content (_content) {}
+};
+struct body_json {
+	std::string Content;
+	body_json (std::string _content): Content (_content) {}
+};
 struct body_raw {
 	std::string ContentType, Content;
 	body_raw (std::string _content_type, std::string _content): ContentType (_content_type), Content (_content) {}
@@ -67,6 +75,8 @@ concept TFormOption = std::is_same<T, timeout>::value || std::is_same<T, server>
 std::is_same<T, header>::value || std::is_same<T, authorization>::value || std::is_same<T, connection>::value ||
 std::is_same<T, content_type>::value || std::is_same<T, referer>::value || std::is_same<T, user_agent>::value ||
 std::is_same<T, url_kv>::value || std::is_same<T, body_kv>::value || std::is_same<T, body_file>::value;
+template<typename T>
+concept TBodyOption = std::is_same<T, body_kvs>::value || std::is_same<T, body_json>::value || std::is_same<T, body_raw>::value;
 }
 
 

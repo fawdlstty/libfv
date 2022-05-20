@@ -31,8 +31,15 @@ fv::Response _r2 = co_await fv::Post ("https://t.cn", fv::body_kv ("a", "aaa"), 
 // 提交文件
 fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_file ("a", "filename.txt", "content..."));
 
+// 发送 HttpPost 请求并提交 Key-Value Pair 内容
+fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_kvs ("a=b&c=d"));
+
+// 发送 HttpPost 请求并提交 json 内容
+fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_json ("{\"a\":\"b\"}"));
+
 // 发送 HttpPost 请求并提交原始内容
 fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_raw ("application/octet-stream", "aaa"));
+
 ```
 
 可在请求时指定 HTTP 头：

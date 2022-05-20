@@ -220,6 +220,39 @@ inline void SslConn::Cancel () {
 
 
 
+inline SslConn2::SslConn2 (Ssl::stream<Tcp::socket> _sock): SslSocket (std::move (_sock)) {
+	if (Config::NoDelay)
+		SslSocket.next_layer ().set_option (Tcp::no_delay { true });
+}
+
+inline void SslConn2::Close () {
+	if (SslSocket.next_layer ().is_open ()) {
+		SslSocket.next_layer ().shutdown (SocketBase::shutdown_both);
+		SslSocket.next_layer ().close ();
+	}
+}
+
+inline Task<void> SslConn2::Send (char *_data, size_t _size) {
+	if (!SslSocket.next_layer ().is_open ())
+		throw Exception ("Cannot send data to a closed connection.");
+	size_t _sended = 0;
+	while (_sended < _size) {
+		size_t _tmp_send = co_await SslSocket.async_write_some (asio::buffer (&_data [_sended], _size - _sended), UseAwaitable);
+		if (_tmp_send == 0)
+			throw Exception ("Connection temp closed.");
+		_sended += _tmp_send;
+	}
+}
+
+inline Task<size_t> SslConn2::RecvImpl (char *_data, size_t _size) {
+	if (!SslSocket.next_layer ().is_open ())
+		co_return 0;
+	size_t _count = co_await SslSocket.async_read_some (asio::buffer (_data, _size), UseAwaitable);
+	co_return _count;
+}
+
+
+
 inline WsConn::WsConn (std::shared_ptr<IConn> _parent, bool _is_client): Parent (_parent), IsClient (_is_client) {
 	fv::Tasks::RunAsync ([_wptr = std::weak_ptr (shared_from_this ())] () -> Task<void> {
 		while (true) {

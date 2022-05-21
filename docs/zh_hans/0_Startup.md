@@ -78,4 +78,8 @@ fv::Request::SetDefaultHeader ("User-Agent", "libfv-0.0.1");
 
 // 设置全局 Websocket 自动 ping 时间间隔
 fv::Config::WebsocketAutoPing = std::chrono::minutes (1);
+
+// 设置 SSL 版本
+fv::Config::SslClientVer = fv::Ssl::context::tls;
+fv::Config::SslServerVer = fv::Ssl::context::tls;
 ```

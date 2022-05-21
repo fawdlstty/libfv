@@ -23,6 +23,7 @@ struct Config {
 	inline static TimeSpan ConnectTimeout = std::chrono::seconds (2);
 	inline static bool NoDelay = false;
 	inline static TimeSpan WebsocketAutoPing = std::chrono::minutes (1);
+	inline static Ssl::context::method SslClientVer = Ssl::context::tls, SslServerVer = Ssl::context::tls;
 };
 
 

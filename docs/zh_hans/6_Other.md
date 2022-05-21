@@ -10,7 +10,7 @@ co_await fv::Tasks::Delay (std::chrono::seconds (10));
 ## 外部需要用到 io_context
 
 ```cpp
-boost::asio::io_context &_ctx = fv::Tasks::GetContext ();
+fv::IoContext &_ctx = fv::Tasks::GetContext ();
 ```
 
 ## 异步锁

@@ -81,7 +81,7 @@ protected:
 
 struct SslConn: public IConn {
 	Tcp::resolver ResolverImpl;
-	Ssl::context SslCtx { Ssl::context::tls };
+	Ssl::context SslCtx { Config::SslClientVer };
 	Ssl::stream<Tcp::socket> SslSocket;
 
 	SslConn (IoContext &_ctx): ResolverImpl (_ctx), SslSocket (_ctx, SslCtx) {}

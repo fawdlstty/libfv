@@ -62,9 +62,9 @@ struct Session {
 		auto [_schema, _host, _port, _path] = _parse_url (_url);
 		std::shared_ptr<IConn> _conn;
 		if (_schema == "https") {
-			_conn = std::shared_ptr<IConn> (new SslConn { Tasks::GetContext () });
+			_conn = std::shared_ptr<IConn> (new SslConn {});
 		} else {
-			_conn = std::shared_ptr<IConn> (new TcpConn { Tasks::GetContext () });
+			_conn = std::shared_ptr<IConn> (new TcpConn {});
 		}
 
 		//// cancel

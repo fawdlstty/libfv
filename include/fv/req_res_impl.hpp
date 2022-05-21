@@ -27,7 +27,7 @@
 
 
 namespace fv {
-inline Task<Request> Request::GetFromConn (std::shared_ptr<IConn> _conn, uint16_t _listen_port) {
+inline Task<Request> Request::GetFromConn (std::shared_ptr<IConn2> _conn, uint16_t _listen_port) {
 	std::string _line = co_await _conn->ReadLine ();
 	size_t _p = _line.find (' ');
 	static std::unordered_map<std::string, MethodType> s_method_vals { { "HEAD", MethodType::Head }, { "OPTION", MethodType::Option }, { "GET", MethodType::Get }, { "POST", MethodType::Post }, { "PUT", MethodType::Put }, { "DELETE", MethodType::Delete } };
@@ -35,7 +35,7 @@ inline Task<Request> Request::GetFromConn (std::shared_ptr<IConn> _conn, uint16_
 	if (!s_method_vals.contains (_tmp))
 		throw Exception ("Unrecognized request type");
 	Request _r {};
-	_r.Schema = dynamic_cast<SslConn *> (_conn.get ()) ? "https" : "http";
+	_r.Schema = dynamic_cast<SslConn2 *> (_conn.get ()) ? "https" : "http";
 	_r.Method = s_method_vals [_tmp];
 	_line = _line.erase (0, _p + 1);
 	_p = _line.find (' ');

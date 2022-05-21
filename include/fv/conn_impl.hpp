@@ -13,7 +13,7 @@
 
 
 namespace fv {
-inline Task<char> IConn::ReadChar () {
+inline Task<char> IConn2::ReadChar () {
 	if (TmpData.size () == 0) {
 		char _buf [1024];
 		size_t _n = co_await RecvImpl (_buf, sizeof (_buf));
@@ -25,7 +25,7 @@ inline Task<char> IConn::ReadChar () {
 	co_return _ret;
 }
 
-inline Task<std::string> IConn::ReadLine () {
+inline Task<std::string> IConn2::ReadLine () {
 	std::string _tmp = "";
 	size_t _p;
 	while ((_p = TmpData.find ('\n')) == std::string::npos) {
@@ -40,7 +40,7 @@ inline Task<std::string> IConn::ReadLine () {
 	co_return _tmp;
 }
 
-inline Task<std::string> IConn::ReadCount (size_t _count) {
+inline Task<std::string> IConn2::ReadCount (size_t _count) {
 	if (_count == 0)
 		co_return "";
 	std::string _tmp = "";
@@ -54,14 +54,14 @@ inline Task<std::string> IConn::ReadCount (size_t _count) {
 	co_return _tmp;
 }
 
-inline Task<std::vector<uint8_t>> IConn::ReadCountVec (size_t _count) {
+inline Task<std::vector<uint8_t>> IConn2::ReadCountVec (size_t _count) {
 	std::string _tmp = co_await ReadCount (_count);
 	std::vector<uint8_t> _vec;
 	_vec.assign ((uint8_t *) &_tmp [0], (uint8_t *) &_tmp [_count]);
 	co_return _vec;
 }
 
-inline Task<std::string> IConn::ReadSome () {
+inline Task<std::string> IConn2::ReadSome () {
 	if (TmpData.size () > 0) {
 		std::string _ret = std::move (TmpData);
 		TmpData = "";
@@ -93,7 +93,7 @@ inline Task<void> TcpConn::Reconnect () {
 		_ip = _v [0];
 	}
 	uint16_t _sport = (uint16_t) std::stoi (m_port);
-	co_await Socket.async_connect (Tcp::endpoint { asio::ip::address::from_string (m_host), _sport }, UseAwaitable);
+	co_await Socket.async_connect (Tcp::endpoint { asio::ip::address::from_string (_ip), _sport }, UseAwaitable);
 	if (!Socket.is_open ())
 		throw Exception (fmt::format ("Cannot connect to server {}", m_host));
 	if (Config::NoDelay)
@@ -185,7 +185,7 @@ inline Task<void> SslConn::Reconnect () {
 		_ip = _v [0];
 	}
 	uint16_t _sport = (uint16_t) std::stoi (m_port);
-	co_await SslSocket.next_layer ().async_connect (Tcp::endpoint { asio::ip::address::from_string (m_host), _sport }, UseAwaitable);
+	co_await SslSocket.next_layer ().async_connect (Tcp::endpoint { asio::ip::address::from_string (_ip), _sport }, UseAwaitable);
 	if (!SslSocket.next_layer ().is_open ())
 		throw Exception (fmt::format ("Cannot connect to server {}", m_host));
 	if (Config::NoDelay)
@@ -255,7 +255,7 @@ inline Task<size_t> SslConn2::RecvImpl (char *_data, size_t _size) {
 
 
 
-inline WsConn::WsConn (std::shared_ptr<IConn> _parent, bool _is_client): Parent (_parent), IsClient (_is_client) {
+inline WsConn::WsConn (std::shared_ptr<IConn2> _parent, bool _is_client): Parent (_parent), IsClient (_is_client) {
 	fv::Tasks::RunAsync ([_wptr = std::weak_ptr (shared_from_this ())] () -> Task<void> {
 		while (true) {
 			co_await Tasks::Delay (Config::WebsocketAutoPing);
@@ -366,7 +366,7 @@ inline Task<std::shared_ptr<IConn>> Connect (std::string _url) {
 	if (_schema == "tcp") {
 		if (_path != "/")
 			throw Exception ("Url format error");
-		auto _conn = std::shared_ptr<IConn> (new TcpConn { Tasks::GetContext () });
+		auto _conn = std::shared_ptr<IConn> (new TcpConn {});
 		co_await _conn->Connect (_host, _port);
 		co_return _conn;
 	} else {
@@ -378,9 +378,7 @@ inline Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url) {
 	auto [_schema, _host, _port, _path] = _parse_url (_url);
 	if (_schema == "ws" || _schema == "wss") {
 		// connect
-		auto _conn = std::shared_ptr<IConn> (_schema == "ws" ?
-			(IConn *) new TcpConn { Tasks::GetContext () } :
-			new SslConn { Tasks::GetContext () });
+		auto _conn = std::shared_ptr<IConn> (_schema == "ws" ? (IConn *) new TcpConn {} : new SslConn {});
 		co_await _conn->Connect (_host, _port);
 
 		// generate data

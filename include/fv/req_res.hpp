@@ -17,6 +17,7 @@
 
 namespace fv {
 struct IConn;
+struct IConn2;
 struct WsConn;
 
 struct Request {
@@ -36,7 +37,7 @@ struct Request {
 	CaseInsensitiveMap Headers = DefaultHeaders ();
 	std::unordered_map<std::string, std::string> Cookies;
 
-	static Task<Request> GetFromConn (std::shared_ptr<IConn> _conn, uint16_t _listen_port);
+	static Task<Request> GetFromConn (std::shared_ptr<IConn2> _conn, uint16_t _listen_port);
 	static CaseInsensitiveMap DefaultHeaders () { return m_def_headers; }
 	static void SetDefaultHeader (std::string _key, std::string _value) { m_def_headers [_key] = _value; }
 
@@ -47,7 +48,7 @@ struct Request {
 
 private:
 	bool _content_raw_contains_files ();
-	std::shared_ptr<IConn> Conn;
+	std::shared_ptr<IConn2> Conn;
 	bool Upgrade = false;
 
 	inline static CaseInsensitiveMap m_def_headers { { "Accept", "*/*" }, { "Accept-Encoding", "gzip" }, { "Cache-Control", "no-cache" }, { "Connection", "keep-alive" }, { "User-Agent", "libfv-0.0.2" } };

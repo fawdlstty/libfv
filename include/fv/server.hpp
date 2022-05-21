@@ -16,9 +16,9 @@
 
 namespace fv {
 struct TcpServer {
-	void SetOnConnect (std::function<Task<void> (std::shared_ptr<IConn>)> _on_connect) { OnConnect = _on_connect; }
-	void RegisterClient (int64_t _id, std::shared_ptr<IConn> _conn) { std::unique_lock _ul { Mutex }; Clients [_id] = _conn; }
-	void UnregisterClient (int64_t _id, std::shared_ptr<IConn> _conn) {
+	void SetOnConnect (std::function<Task<void> (std::shared_ptr<IConn2>)> _on_connect) { OnConnect = _on_connect; }
+	void RegisterClient (int64_t _id, std::shared_ptr<IConn2> _conn) { std::unique_lock _ul { Mutex }; Clients [_id] = _conn; }
+	void UnregisterClient (int64_t _id, std::shared_ptr<IConn2> _conn) {
 		std::unique_lock _ul { Mutex };
 		if (Clients [_id].get () == _conn.get ())
 			Clients.erase (_id);
@@ -38,7 +38,7 @@ struct TcpServer {
 	}
 	Task<size_t> BroadcastData (char *_data, size_t _size) {
 		std::unique_lock _ul { Mutex };
-		std::unordered_set<std::shared_ptr<IConn>> _conns;
+		std::unordered_set<std::shared_ptr<IConn2>> _conns;
 		for (auto [_key, _val] : Clients)
 			_conns.emplace (_val);
 		_ul.unlock ();
@@ -60,7 +60,7 @@ struct TcpServer {
 		Acceptor = std::make_unique<Tcp::acceptor> (_executor, Tcp::endpoint { Tcp::v4 (), _port }, true);
 		try {
 			for (; IsRun.load ();) {
-				std::shared_ptr<IConn> _conn = std::shared_ptr<IConn> ((IConn *) new TcpConn2 (co_await Acceptor->async_accept (UseAwaitable)));
+				std::shared_ptr<IConn2> _conn = std::shared_ptr<IConn2> ((IConn2 *) new TcpConn2 (co_await Acceptor->async_accept (UseAwaitable)));
 				Tasks::RunAsync ([this, _conn] () -> Task<void> {
 					try {
 						co_await OnConnect (_conn);
@@ -78,9 +78,9 @@ struct TcpServer {
 	}
 
 private:
-	std::function<Task<void> (std::shared_ptr<IConn>)> OnConnect;
+	std::function<Task<void> (std::shared_ptr<IConn2>)> OnConnect;
 	std::mutex Mutex;
-	std::unordered_map<int64_t, std::shared_ptr<IConn>> Clients;
+	std::unordered_map<int64_t, std::shared_ptr<IConn2>> Clients;
 
 	std::unique_ptr<Tcp::acceptor> Acceptor;
 	std::atomic_bool IsRun { false };
@@ -95,7 +95,7 @@ struct HttpServer {
 	void OnAfter (std::function<Task<void> (fv::Request &, fv::Response &)> _cb) { m_after = _cb; }
 
 	Task<void> Run (uint16_t _port) {
-		m_tcpserver.SetOnConnect ([this, _port] (std::shared_ptr<IConn> _conn) -> Task<void> {
+		m_tcpserver.SetOnConnect ([this, _port] (std::shared_ptr<IConn2> _conn) -> Task<void> {
 			while (true) {
 				Request _req = co_await Request::GetFromConn (_conn, _port);
 				if (m_before) {

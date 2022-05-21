@@ -29,9 +29,8 @@ struct Config {
 		try {
 			Tcp::resolver _resolver { Tasks::GetContext () };
 			auto _it = co_await _resolver.async_resolve (_host, "", UseAwaitable);
-			for (auto _i : _it) {
+			for (auto _i : _it)
 				_v.push_back (_i.endpoint ().address ().to_string ());
-			}
 		} catch (...) {
 		}
 		co_return _v;

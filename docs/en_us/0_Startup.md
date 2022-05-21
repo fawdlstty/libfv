@@ -82,4 +82,17 @@ fv::Config::WebsocketAutoPing = std::chrono::minutes (1);
 // Setting SSL version
 fv::Config::SslClientVer = fv::Ssl::context::tls;
 fv::Config::SslServerVer = fv::Ssl::context::tls;
+
+// Setting DNS resolve function
+fv::Config::DnsResolve = [] (std::string _host) -> Task<std::vector<std::string>> {
+	std::vector<std::string> _v;
+	try {
+		fv::Tcp::resolver _resolver { fv::Tasks::GetContext () };
+		auto _it = co_await _resolver.async_resolve (_host, "", fv::seAwaitable);
+		for (auto _i : _it)
+			_v.push_back (_i.endpoint ().address ().to_string ());
+	} catch (...) {
+	}
+	co_return _v;
+};
 ```

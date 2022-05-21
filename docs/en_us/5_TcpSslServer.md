@@ -11,7 +11,7 @@ fv::TcpServer _tcpserver {};
 ## Sets the new link handler function
 
 ```cpp
-m_tcpserver.SetOnConnect ([&m_tcpserver] (std::shared_ptr<IConn> _conn) -> Task<void> {
+m_tcpserver.SetOnConnect ([&m_tcpserver] (std::shared_ptr<IConn2> _conn) -> Task<void> {
 	// Free play here, return then link close, usually `while (true)`
 
 	// You can register client or unregister, specify the ID based on your profession

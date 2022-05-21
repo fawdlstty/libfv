@@ -11,7 +11,7 @@ fv::TcpServer _tcpserver {};
 ## 设置新链接处理函数
 
 ```cpp
-m_tcpserver.SetOnConnect ([&m_tcpserver] (std::shared_ptr<IConn> _conn) -> Task<void> {
+m_tcpserver.SetOnConnect ([&m_tcpserver] (std::shared_ptr<IConn2> _conn) -> Task<void> {
 	// 此处自由发挥，退出函数则链接断开，通常 `while (true)`
 
 	// 可考虑注册客户端及取消注册，此处自己根据业务指定ID

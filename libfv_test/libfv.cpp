@@ -39,33 +39,32 @@
 
 
 Task<void> test_client () {
-	fv::Session _sess = co_await fv::Session::FromUrl ("https://www.fawdlstty.com");
-	fv::Response _r {};
-	while (true) {
-		_r = co_await _sess.Get ("https://www.fawdlstty.com");
-		std::cout << _r.Content.size () << '\n';
-		std::cout << "press any key to continue\n";
-		::_getch ();
-	}
+	std::vector<std::string> _v = co_await fv::Config::DnsResolve ("www.baidu.com");
+	fv::Response _r = co_await fv::Get ("https://t.cn");
+	_r = co_await fv::Get ("https://t.cn", fv::timeout (std::chrono::seconds (10)));
+	_r = co_await fv::Get ("https://t.cn", fv::server ("106.75.237.200"));
+	_r = co_await fv::Post ("https://t.cn", fv::body_kv ("a", "aaa"));
+	_r = co_await fv::Post ("https://t.cn", fv::body_kv ("a", "aaa"), fv::content_type ("application/x-www-form-urlencoded"));
+	_r = co_await fv::Post ("https://t.cn", fv::body_file ("a", "filename.txt", "content..."));
+	_r = co_await fv::Post ("https://t.cn", fv::body_kvs ("a=b&c=d"));
+	_r = co_await fv::Post ("https://t.cn", fv::body_json ("{\"a\":\"b\"}"));
+	_r = co_await fv::Post ("https://t.cn", fv::body_raw ("application/octet-stream", "aaa"));
+	_r = co_await fv::Get ("https://t.cn", fv::header ("X-WWW-Router", "123456789"));
+	_r = co_await fv::Get ("https://t.cn", fv::authorization ("Bearer XXXXXXXXXXXXX=="));
+	_r = co_await fv::Get ("https://t.cn", fv::authorization ("admin", "123456"));
+	_r = co_await fv::Get ("https://t.cn", fv::connection ("keep-alive"));
+	_r = co_await fv::Get ("https://t.cn", fv::content_type ("application/octet-stream"));
+	_r = co_await fv::Get ("https://t.cn", fv::referer ("https://t.cn"));
+	_r = co_await fv::Get ("https://t.cn", fv::user_agent ("Mozilla/4.0 Chrome 2333"));
 
-	//std::vector<std::string> _v = co_await fv::Config::DnsResolve ("www.baidu.com");
-	//fv::Response _r = co_await fv::Get ("https://t.cn");
-	//_r = co_await fv::Get ("https://t.cn", fv::timeout (std::chrono::seconds (10)));
-	//_r = co_await fv::Get ("https://t.cn", fv::server ("106.75.237.200"));
-	//_r = co_await fv::Post ("https://t.cn", fv::body_kv ("a", "aaa"));
-	//_r = co_await fv::Post ("https://t.cn", fv::body_kv ("a", "aaa"), fv::content_type ("application/x-www-form-urlencoded"));
-	//_r = co_await fv::Post ("https://t.cn", fv::body_file ("a", "filename.txt", "content..."));
-	//_r = co_await fv::Post ("https://t.cn", fv::body_kvs ("a=b&c=d"));
-	//_r = co_await fv::Post ("https://t.cn", fv::body_json ("{\"a\":\"b\"}"));
-	//_r = co_await fv::Post ("https://t.cn", fv::body_raw ("application/octet-stream", "aaa"));
-	//_r = co_await fv::Get ("https://t.cn", fv::header ("X-WWW-Router", "123456789"));
-	//_r = co_await fv::Get ("https://t.cn", fv::authorization ("Bearer XXXXXXXXXXXXX=="));
-	//_r = co_await fv::Get ("https://t.cn", fv::authorization ("admin", "123456"));
-	//_r = co_await fv::Get ("https://t.cn", fv::connection ("keep-alive"));
-	//_r = co_await fv::Get ("https://t.cn", fv::content_type ("application/octet-stream"));
-	//_r = co_await fv::Get ("https://t.cn", fv::referer ("https://t.cn"));
-	//_r = co_await fv::Get ("https://t.cn", fv::user_agent ("Mozilla/4.0 Chrome 2333"));
-
+	//fv::Session _sess = co_await fv::Session::FromUrl ("https://www.fawdlstty.com");
+	//fv::Response _r {};
+	//while (true) {
+	//	_r = co_await _sess.Get ("https://www.fawdlstty.com");
+	//	std::cout << _r.Content.size () << '\n';
+	//	std::cout << "press any key to continue\n";
+	//	::_getch ();
+	//}
 	//std::this_thread::sleep_for (std::chrono::seconds (10));
 	//fv::Tasks::Stop ();
 }

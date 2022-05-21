@@ -10,32 +10,6 @@
 			"buildCommandArgs": "",
 			"ctestCommandArgs": "",
 			"cmakeToolchain": "D:/GitHub/vcpkg/scripts/buildsystems/vcpkg.cmake"
-		},
-		{
-			"name": "WSL-GCC-Debug",
-			"generator": "Ninja",
-			"configurationType": "Debug",
-			"buildRoot": "${projectDir}\\out\\build\\${name}",
-			"installRoot": "${projectDir}\\out\\install\\${name}",
-			"cmakeExecutable": "cmake",
-			"cmakeCommandArgs": "",
-			"buildCommandArgs": "",
-			"ctestCommandArgs": "",
-			"inheritEnvironments": [ "linux_x64" ],
-			"wslPath": "${defaultWSLPath}",
-			"cmakeToolchain": "/mnt/d/GitHub/vcpkg/scripts/buildsystems/vcpkg.cmake"
-		},
-		{
-			"name": "x64-Clang-Debug",
-			"generator": "Ninja",
-			"configurationType": "Debug",
-			"buildRoot": "${projectDir}\\out\\build\\${name}",
-			"installRoot": "${projectDir}\\out\\install\\${name}",
-			"cmakeCommandArgs": "",
-			"buildCommandArgs": "",
-			"ctestCommandArgs": "",
-			"cmakeToolchain": "D:/GitHub/vcpkg/scripts/buildsystems/vcpkg.cmake",
-			"inheritEnvironments": [ "clang_cl_x64_x64" ]
 		}
 	]
 }

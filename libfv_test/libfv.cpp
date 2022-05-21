@@ -45,6 +45,7 @@ Task<void> test_client () {
 	//std::cout << _r.Content.size () << '\n';
 	////
 	//std::this_thread::sleep_for (std::chrono::seconds (10));
+	std::vector<std::string> _v = co_await fv::Config::DnsResolve ("www.baidu.com");
 	fv::Response _r = co_await fv::Get ("https://t.cn");
 	_r = co_await fv::Get ("https://t.cn", fv::timeout (std::chrono::seconds (10)));
 	_r = co_await fv::Get ("https://t.cn", fv::server ("106.75.237.200"));

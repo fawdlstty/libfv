@@ -24,6 +24,18 @@ struct Config {
 	inline static bool NoDelay = false;
 	inline static TimeSpan WebsocketAutoPing = std::chrono::minutes (1);
 	inline static Ssl::context::method SslClientVer = Ssl::context::tls, SslServerVer = Ssl::context::tls;
+	inline static std::function<Task<std::vector<std::string>> (std::string)> DnsResolve = [] (std::string _host) -> Task<std::vector<std::string>> {
+		std::vector<std::string> _v;
+		try {
+			Tcp::resolver _resolver { Tasks::GetContext () };
+			auto _it = co_await _resolver.async_resolve (_host, "", UseAwaitable);
+			for (auto _i : _it) {
+				_v.push_back (_i.endpoint ().address ().to_string ());
+			}
+		} catch (...) {
+		}
+		co_return _v;
+	};
 };
 
 

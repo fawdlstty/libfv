@@ -40,10 +40,9 @@ protected:
 
 
 struct TcpConn: public IConn {
-	Tcp::resolver ResolverImpl;
 	Tcp::socket Socket;
 
-	TcpConn (IoContext &_ctx): ResolverImpl (_ctx), Socket (_ctx) {}
+	TcpConn (IoContext &_ctx): Socket (_ctx) {}
 
 	virtual ~TcpConn () { Cancel (); Close (); }
 	Task<void> Connect (std::string _host, std::string _port) override;
@@ -80,11 +79,10 @@ protected:
 
 
 struct SslConn: public IConn {
-	Tcp::resolver ResolverImpl;
 	Ssl::context SslCtx { Config::SslClientVer };
 	Ssl::stream<Tcp::socket> SslSocket;
 
-	SslConn (IoContext &_ctx): ResolverImpl (_ctx), SslSocket (_ctx, SslCtx) {}
+	SslConn (IoContext &_ctx): SslSocket (_ctx, SslCtx) {}
 	virtual ~SslConn () { Cancel (); Close (); }
 	Task<void> Connect (std::string _host, std::string _port) override;
 	Task<void> Reconnect () override;

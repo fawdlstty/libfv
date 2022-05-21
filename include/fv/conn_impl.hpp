@@ -85,13 +85,15 @@ inline Task<void> TcpConn::Reconnect () {
 	Close ();
 	TmpData = "";
 	std::regex _r { "(\\d+\\.){3}\\d+" };
-	if (std::regex_match (m_host, _r)) {
-		uint16_t _sport = (uint16_t) std::stoi (m_port);
-		co_await Socket.async_connect (Tcp::endpoint { asio::ip::address::from_string (m_host), _sport }, UseAwaitable);
-	} else {
-		auto _it = co_await ResolverImpl.async_resolve (m_host, m_port, UseAwaitable);
-		co_await Socket.async_connect (_it->endpoint (), UseAwaitable);
+	std::string _ip = m_host;
+	if (!std::regex_match (m_host, _r)) {
+		auto _v = co_await Config::DnsResolve (m_host);
+		if (_v.size () == 0)
+			throw Exception (fmt::format ("Cannot resolve host {}", m_host));
+		_ip = _v [0];
 	}
+	uint16_t _sport = (uint16_t) std::stoi (m_port);
+	co_await Socket.async_connect (Tcp::endpoint { asio::ip::address::from_string (m_host), _sport }, UseAwaitable);
 	if (!Socket.is_open ())
 		throw Exception (fmt::format ("Cannot connect to server {}", m_host));
 	if (Config::NoDelay)
@@ -125,7 +127,6 @@ inline Task<size_t> TcpConn::RecvImpl (char *_data, size_t _size) {
 }
 
 inline void TcpConn::Cancel () {
-	ResolverImpl.cancel ();
 	Socket.cancel ();
 }
 
@@ -176,13 +177,15 @@ inline Task<void> SslConn::Reconnect () {
 	SslSocket.set_verify_mode (Ssl::verify_peer);
 	SslSocket.set_verify_callback (Config::SslVerifyFunc);
 	std::regex _r { "(\\d+\\.){3}\\d+" };
-	if (std::regex_match (m_host, _r)) {
-		uint16_t _sport = (uint16_t) std::stoi (m_port);
-		co_await SslSocket.next_layer ().async_connect (Tcp::endpoint { asio::ip::address::from_string (m_host), _sport }, UseAwaitable);
-	} else {
-		auto _it = co_await ResolverImpl.async_resolve (m_host, m_port, UseAwaitable);
-		co_await SslSocket.next_layer ().async_connect (_it->endpoint (), UseAwaitable);
+	std::string _ip = m_host;
+	if (!std::regex_match (m_host, _r)) {
+		auto _v = co_await Config::DnsResolve (m_host);
+		if (_v.size () == 0)
+			throw Exception (fmt::format ("Cannot resolve host {}", m_host));
+		_ip = _v [0];
 	}
+	uint16_t _sport = (uint16_t) std::stoi (m_port);
+	co_await SslSocket.next_layer ().async_connect (Tcp::endpoint { asio::ip::address::from_string (m_host), _sport }, UseAwaitable);
 	if (!SslSocket.next_layer ().is_open ())
 		throw Exception (fmt::format ("Cannot connect to server {}", m_host));
 	if (Config::NoDelay)
@@ -214,7 +217,6 @@ inline Task<size_t> SslConn::RecvImpl (char *_data, size_t _size) {
 }
 
 inline void SslConn::Cancel () {
-	ResolverImpl.cancel ();
 	SslSocket.next_layer ().cancel ();
 }
 

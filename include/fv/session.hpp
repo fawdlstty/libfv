@@ -87,7 +87,6 @@ struct Session {
 	}
 
 	Task<Response> DoMethod (Request _r) {
-		AsyncMutex _mtx { true };
 		if (!IsValid ())
 			throw Exception ("Session is not valid");
 		auto [_schema, _host, _port, _path] = _parse_url (_r.Url);

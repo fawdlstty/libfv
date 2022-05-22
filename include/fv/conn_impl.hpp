@@ -82,22 +82,33 @@ inline Task<void> TcpConn::Connect (std::string _host, std::string _port) {
 }
 
 inline Task<void> TcpConn::Reconnect () {
-	Close ();
-	TmpData = "";
-	std::regex _r { "(\\d+\\.){3}\\d+" };
-	std::string _ip = m_host;
-	if (!std::regex_match (m_host, _r)) {
-		auto _v = co_await Config::DnsResolve (m_host);
-		if (_v.size () == 0)
-			throw Exception (fmt::format ("Cannot resolve host {}", m_host));
-		_ip = _v [0];
+	if (!ConnMutex.TryLock ()) {
+		co_await ConnMutex.Lock ();
+		ConnMutex.Unlock ();
+		co_return;
 	}
-	uint16_t _sport = (uint16_t) std::stoi (m_port);
-	co_await Socket.async_connect (Tcp::endpoint { asio::ip::address::from_string (_ip), _sport }, UseAwaitable);
-	if (!Socket.is_open ())
-		throw Exception (fmt::format ("Cannot connect to server {}", m_host));
-	if (Config::NoDelay)
-		Socket.set_option (Tcp::no_delay { true });
+	try {
+		Close ();
+		TmpData = "";
+		std::regex _r { "(\\d+\\.){3}\\d+" };
+		std::string _ip = m_host;
+		if (!std::regex_match (m_host, _r)) {
+			auto _v = co_await Config::DnsResolve (m_host);
+			if (_v.size () == 0)
+				throw Exception (fmt::format ("Cannot resolve host {}", m_host));
+			_ip = _v [0];
+		}
+		uint16_t _sport = (uint16_t) std::stoi (m_port);
+		co_await Socket.async_connect (Tcp::endpoint { asio::ip::address::from_string (_ip), _sport }, UseAwaitable);
+		if (!Socket.is_open ())
+			throw Exception (fmt::format ("Cannot connect to server {}", m_host));
+		if (Config::NoDelay)
+			Socket.set_option (Tcp::no_delay { true });
+	} catch (...) {
+		ConnMutex.Unlock ();
+		throw;
+	}
+	ConnMutex.Unlock ();
 }
 
 inline void TcpConn::Close () {
@@ -172,25 +183,36 @@ inline Task<void> SslConn::Connect (std::string _host, std::string _port) {
 }
 
 inline Task<void> SslConn::Reconnect () {
-	Close ();
-	TmpData = "";
-	SslSocket.set_verify_mode (Ssl::verify_peer);
-	SslSocket.set_verify_callback (Config::SslVerifyFunc);
-	std::regex _r { "(\\d+\\.){3}\\d+" };
-	std::string _ip = m_host;
-	if (!std::regex_match (m_host, _r)) {
-		auto _v = co_await Config::DnsResolve (m_host);
-		if (_v.size () == 0)
-			throw Exception (fmt::format ("Cannot resolve host {}", m_host));
-		_ip = _v [0];
+	if (!ConnMutex.TryLock ()) {
+		co_await ConnMutex.Lock ();
+		ConnMutex.Unlock ();
+		co_return;
 	}
-	uint16_t _sport = (uint16_t) std::stoi (m_port);
-	co_await SslSocket.next_layer ().async_connect (Tcp::endpoint { asio::ip::address::from_string (_ip), _sport }, UseAwaitable);
-	if (!SslSocket.next_layer ().is_open ())
-		throw Exception (fmt::format ("Cannot connect to server {}", m_host));
-	if (Config::NoDelay)
-		SslSocket.next_layer ().set_option (Tcp::no_delay { true });
-	co_await SslSocket.async_handshake (Ssl::stream_base::client, UseAwaitable);
+	try {
+		Close ();
+		TmpData = "";
+		SslSocket.set_verify_mode (Ssl::verify_peer);
+		SslSocket.set_verify_callback (Config::SslVerifyFunc);
+		std::regex _r { "(\\d+\\.){3}\\d+" };
+		std::string _ip = m_host;
+		if (!std::regex_match (m_host, _r)) {
+			auto _v = co_await Config::DnsResolve (m_host);
+			if (_v.size () == 0)
+				throw Exception (fmt::format ("Cannot resolve host {}", m_host));
+			_ip = _v [0];
+		}
+		uint16_t _sport = (uint16_t) std::stoi (m_port);
+		co_await SslSocket.next_layer ().async_connect (Tcp::endpoint { asio::ip::address::from_string (_ip), _sport }, UseAwaitable);
+		if (!SslSocket.next_layer ().is_open ())
+			throw Exception (fmt::format ("Cannot connect to server {}", m_host));
+		if (Config::NoDelay)
+			SslSocket.next_layer ().set_option (Tcp::no_delay { true });
+		co_await SslSocket.async_handshake (Ssl::stream_base::client, UseAwaitable);
+	} catch (...) {
+		ConnMutex.Unlock ();
+		throw;
+	}
+	ConnMutex.Unlock ();
 }
 
 inline void SslConn::Close () {

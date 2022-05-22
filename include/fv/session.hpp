@@ -87,6 +87,7 @@ struct Session {
 	}
 
 	Task<Response> DoMethod (Request _r) {
+		AsyncMutex _mtx { true };
 		if (!IsValid ())
 			throw Exception ("Session is not valid");
 		auto [_schema, _host, _port, _path] = _parse_url (_r.Url);
@@ -112,8 +113,9 @@ struct Session {
 				co_await Conn->Send (_data.data (), _data.size ());
 				break;
 			} catch (...) {
-				if (i == 1)
+				if (i == 1) {
 					throw;
+				}
 			}
 			co_await Conn->Reconnect ();
 		}

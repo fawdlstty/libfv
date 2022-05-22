@@ -102,7 +102,7 @@ inline Task<void> TcpConn::Reconnect () {
 
 inline void TcpConn::Close () {
 	if (Socket.is_open ()) {
-		Socket.shutdown (SocketBase::shutdown_both);
+		//Socket.shutdown (SocketBase::shutdown_both);
 		Socket.close ();
 	}
 }
@@ -139,7 +139,7 @@ inline TcpConn2::TcpConn2 (Tcp::socket _sock): Socket (std::move (_sock)) {
 
 inline void TcpConn2::Close () {
 	if (Socket.is_open ()) {
-		Socket.shutdown (SocketBase::shutdown_both);
+		//Socket.shutdown (SocketBase::shutdown_both);
 		Socket.close ();
 	}
 }
@@ -195,7 +195,7 @@ inline Task<void> SslConn::Reconnect () {
 
 inline void SslConn::Close () {
 	if (SslSocket.next_layer ().is_open ()) {
-		SslSocket.next_layer ().shutdown (SocketBase::shutdown_both);
+		//SslSocket.next_layer ().shutdown (SocketBase::shutdown_both);
 		SslSocket.next_layer ().close ();
 	}
 }
@@ -229,7 +229,7 @@ inline SslConn2::SslConn2 (Ssl::stream<Tcp::socket> _sock): SslSocket (std::move
 
 inline void SslConn2::Close () {
 	if (SslSocket.next_layer ().is_open ()) {
-		SslSocket.next_layer ().shutdown (SocketBase::shutdown_both);
+		//SslSocket.next_layer ().shutdown (SocketBase::shutdown_both);
 		SslSocket.next_layer ().close ();
 	}
 }

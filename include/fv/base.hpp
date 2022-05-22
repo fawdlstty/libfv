@@ -35,6 +35,9 @@ struct Config {
 		}
 		co_return _v;
 	};
+	//inline static std::function<Task<std::optional<std::string>> ()> BindClientIP = [] () -> Task<std::optional<std::string>> {
+	//	co_return std::nullopt;
+	//};
 };
 
 

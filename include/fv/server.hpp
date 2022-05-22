@@ -52,12 +52,13 @@ struct TcpServer {
 		}
 		co_return _count;
 	}
-	Task<void> Run (uint16_t _port) {
+	Task<void> Run (std::string _ip, uint16_t _port) {
 		if (IsRun.load ())
 			co_return;
 		IsRun.store (true);
 		auto _executor = co_await asio::this_coro::executor;
-		Acceptor = std::make_unique<Tcp::acceptor> (_executor, Tcp::endpoint { Tcp::v4 (), _port }, true);
+		Tcp::endpoint _ep { asio::ip::address::from_string (_ip), _port };
+		Acceptor = std::make_unique<Tcp::acceptor> (_executor, _ep, true);
 		try {
 			for (; IsRun.load ();) {
 				std::shared_ptr<IConn2> _conn = std::shared_ptr<IConn2> ((IConn2 *) new TcpConn2 (co_await Acceptor->async_accept (UseAwaitable)));
@@ -70,6 +71,9 @@ struct TcpServer {
 			}
 		} catch (...) {
 		}
+	}
+	Task<void> Run (uint16_t _port) {
+		co_await Run ("0.0.0.0", _port);
 	}
 	void Stop () {
 		IsRun.store (false);

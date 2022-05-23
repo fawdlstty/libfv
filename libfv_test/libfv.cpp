@@ -46,7 +46,7 @@ Task<void> test_client () {
 	_r = co_await fv::Post ("https://t.cn", fv::body_kv ("a", "aaa"));
 	_r = co_await fv::Post ("https://t.cn", fv::body_kv ("a", "aaa"), fv::content_type ("application/x-www-form-urlencoded"));
 	_r = co_await fv::Post ("https://t.cn", fv::body_file ("a", "filename.txt", "content..."));
-	_r = co_await fv::Post ("https://t.cn", fv::body_kvs ("a=b&c=d"));
+	_r = co_await fv::Post ("https://t.cn", fv::body_kvs ({{ "a", "b" }, { "c", "d" }}));
 	_r = co_await fv::Post ("https://t.cn", fv::body_json ("{\"a\":\"b\"}"));
 	_r = co_await fv::Post ("https://t.cn", fv::body_raw ("application/octet-stream", "aaa"));
 	_r = co_await fv::Get ("https://t.cn", fv::header ("X-WWW-Router", "123456789"));

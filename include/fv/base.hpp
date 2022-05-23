@@ -3,6 +3,7 @@
 
 
 
+#include <map>
 #include <string>
 
 #include <fmt/core.h>
@@ -69,8 +70,8 @@ struct body_file {
 	body_file (std::string _name, std::string _filename, std::string _content): Name (_name), FileName (_filename), FileContent (_content) {}
 };
 struct body_kvs {
-	std::string Content;
-	body_kvs (std::string _content): Content (_content) {}
+	std::map<std::string, std::string> Kvs;
+	body_kvs (std::map<std::string, std::string> _kvs): Kvs (std::move (_kvs)) {}
 };
 struct body_json {
 	std::string Content;
@@ -89,9 +90,10 @@ template<typename T>
 concept TFormOption = std::is_same<T, timeout>::value || std::is_same<T, server>::value ||
 std::is_same<T, header>::value || std::is_same<T, authorization>::value || std::is_same<T, connection>::value ||
 std::is_same<T, content_type>::value || std::is_same<T, referer>::value || std::is_same<T, user_agent>::value ||
-std::is_same<T, url_kv>::value || std::is_same<T, body_kv>::value || std::is_same<T, body_file>::value;
+std::is_same<T, url_kv>::value || std::is_same<T, body_kv>::value || std::is_same<T, body_file>::value ||
+std::is_same<T, body_kvs>::value;
 template<typename T>
-concept TBodyOption = std::is_same<T, body_kvs>::value || std::is_same<T, body_json>::value || std::is_same<T, body_raw>::value;
+concept TBodyOption = std::is_same<T, body_json>::value || std::is_same<T, body_raw>::value;
 }
 
 

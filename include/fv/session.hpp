@@ -26,13 +26,13 @@ template<> inline void _OptionApply (Request &_r, user_agent &_ua) { _r.Headers 
 template<> inline void _OptionApply (Request &_r, url_kv &_pd) { _r.QueryItems.push_back (_pd); }
 template<> inline void _OptionApply (Request &_r, body_kv &_pd) { _r.ContentItems.push_back (_pd); }
 template<> inline void _OptionApply (Request &_r, body_file &_pf) { _r.ContentItems.push_back (_pf); }
+template<> inline void _OptionApply (Request &_r, body_kvs &_body) {
+	for (auto &[_k, _v] : _body.Kvs)
+		_r.ContentItems.push_back (body_kv { _k, _v });
+}
 
 template<TBodyOption _Op1>
 inline void _OptionApplyBody (Request &_r, _Op1 &_op) { throw Exception ("Unsupported dest type template instance"); }
-template<> inline void _OptionApplyBody (Request &_r, body_kvs &_body) {
-	_r.Headers ["Content-Type"] = "application/x-www-form-urlencoded";
-	_r.Content = _body.Content;
-}
 template<> inline void _OptionApplyBody (Request &_r, body_json &_body) {
 	_r.Headers ["Content-Type"] = "application/json";
 	_r.Content = _body.Content;

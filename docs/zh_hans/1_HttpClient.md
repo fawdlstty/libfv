@@ -32,7 +32,7 @@ fv::Response _r2 = co_await fv::Post ("https://t.cn", fv::body_kv ("a", "aaa"), 
 fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_file ("a", "filename.txt", "content..."));
 
 // 发送 HttpPost 请求并提交 Key-Value Pair 内容
-fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_kvs ("a=b&c=d"));
+fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_kvs ({{ "a", "b" }, { "c", "d" }}));
 
 // 发送 HttpPost 请求并提交 json 内容
 fv::Response _r = co_await fv::Post ("https://t.cn", fv::body_json ("{\"a\":\"b\"}"));

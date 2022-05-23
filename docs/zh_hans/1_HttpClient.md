@@ -74,10 +74,10 @@ HTTP pipeline 是一种节省链接资源的方案。在发起并获取服务端
 下面给出 HTTP pipeline 使用方式：
 
 ```cpp
-// 创建会话，第二个参数指定服务IP（手工 DNS 解析），传 "" 代表不指定
-fv::Session _sess = co_await fv::Session::FromUrl ("https://t.cn");
+// 创建会话
+fv::Session _sess {};
 
-// 同一会话（TCP 链接）多次请求
+// 同一会话（TCP 链接）多次请求。协议、域名及端口没有变化则复用链接
 fv::Response _r = co_await _sess.Get ("https://t.cn");
 _r = co_await _sess.Get ("https://t.cn");
 _r = co_await _sess.Get ("https://t.cn");

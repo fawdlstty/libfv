@@ -73,10 +73,10 @@ HTTP pipeline is a solution to economize link resources.  After initiating and r
 Here is how to use HTTP pipeline:
 
 ```cpp
-// Creates a session. The second parameter specifies the service IP (manual DNS resolution). "" indicates not specifies
-fv::Session _sess = co_await fv::Session::FromUrl ("https://t.cn");
+// Creates a session
+fv::Session _sess {};
 
-// Multiple requests for the same TCP connect
+// Multiple requests for the same TCP connect. If the schema, host, and port have not changed then reuse the link
 fv::Response _r = co_await _sess.Get ("https://t.cn");
 _r = co_await _sess.Get ("https://t.cn");
 _r = co_await _sess.Get ("https://t.cn");

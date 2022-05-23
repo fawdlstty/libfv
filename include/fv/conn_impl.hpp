@@ -82,9 +82,9 @@ inline Task<void> TcpConn::Connect (std::string _host, std::string _port) {
 }
 
 inline Task<void> TcpConn::Reconnect () {
-	if (!ConnMutex.TryLock ()) {
-		co_await ConnMutex.Lock ();
-		ConnMutex.Unlock ();
+	if (!ConnMtx.TryLock ()) {
+		co_await ConnMtx.Lock ();
+		ConnMtx.Unlock ();
 		co_return;
 	}
 	try {
@@ -105,10 +105,10 @@ inline Task<void> TcpConn::Reconnect () {
 		if (Config::NoDelay)
 			Socket.set_option (Tcp::no_delay { true });
 	} catch (...) {
-		ConnMutex.Unlock ();
+		ConnMtx.Unlock ();
 		throw;
 	}
-	ConnMutex.Unlock ();
+	ConnMtx.Unlock ();
 }
 
 inline void TcpConn::Close () {
@@ -183,9 +183,9 @@ inline Task<void> SslConn::Connect (std::string _host, std::string _port) {
 }
 
 inline Task<void> SslConn::Reconnect () {
-	if (!ConnMutex.TryLock ()) {
-		co_await ConnMutex.Lock ();
-		ConnMutex.Unlock ();
+	if (!ConnMtx.TryLock ()) {
+		co_await ConnMtx.Lock ();
+		ConnMtx.Unlock ();
 		co_return;
 	}
 	try {
@@ -209,10 +209,10 @@ inline Task<void> SslConn::Reconnect () {
 			SslSocket.next_layer ().set_option (Tcp::no_delay { true });
 		co_await SslSocket.async_handshake (Ssl::stream_base::client, UseAwaitable);
 	} catch (...) {
-		ConnMutex.Unlock ();
+		ConnMtx.Unlock ();
 		throw;
 	}
-	ConnMutex.Unlock ();
+	ConnMtx.Unlock ();
 }
 
 inline void SslConn::Close () {

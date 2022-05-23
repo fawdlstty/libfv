@@ -51,73 +51,60 @@ inline void _OptionApplys (Request &_r, _Op1 _op1, _Ops ..._ops) { _OptionApply 
 
 struct Session {
 	std::shared_ptr<IConn> Conn;
+	std::string ConnFlag = "";
+	AsyncMutex SessMtx {};
 
 	Session () {}
-	Session (std::shared_ptr<IConn> _conn): Conn (_conn) {}
-
-	bool IsValid () { return Conn.get () != nullptr; }
-	bool IsConnect () { return IsValid () && Conn->IsConnect (); }
-
-	static Task<Session> FromUrl (std::string _url, std::string _server_ip = "") {
-		auto [_schema, _host, _port, _path] = _parse_url (_url);
-		std::shared_ptr<IConn> _conn;
-		if (_schema == "https") {
-			_conn = std::shared_ptr<IConn> (new SslConn {});
-		} else {
-			_conn = std::shared_ptr<IConn> (new TcpConn {});
-		}
-
-		//// cancel
-		//AsyncTimer _timer {};
-		//if (std::chrono::duration_cast<std::chrono::nanoseconds> (Config::ConnectTimeout).count () > 0) {
-		//	_timer.WaitCallback (Config::ConnectTimeout, [_tconn = std::weak_ptr (_conn)] ()->Task<void> {
-		//		auto _conn = _tconn.lock ();
-		//		if (_conn)
-		//			_conn->Cancel ();
-		//	});
-		//}
-
-		// connect
-		co_await _conn->Connect (_server_ip != "" ? _server_ip : _host, _port);
-
-		//_timer.Cancel ();
-		if (!_conn->IsConnect ())
-			throw Exception ("Connect failure");
-		co_return Session { _conn };
-	}
+	bool IsConnect () { return Conn && Conn->IsConnect (); }
 
 	Task<Response> DoMethod (Request _r) {
-		if (!IsValid ())
-			throw Exception ("Session is not valid");
-		auto [_schema, _host, _port, _path] = _parse_url (_r.Url);
-		_r.Schema = _schema;
-		_r.UrlPath = _path;
-
-		//// cancel
-		//AsyncTimer _timer {};
-		//if (std::chrono::duration_cast<std::chrono::nanoseconds> (_r.Timeout).count () > 0) {
-		//	_timer.WaitCallback (_r.Timeout, [_tconn = std::weak_ptr (Conn)] ()->Task<void> {
-		//		auto _conn = _tconn.lock ();
-		//		if (_conn)
-		//			_conn->Cancel ();
-		//	});
-		//}
-
-		// generate data
-		std::string _data = _r.Serilize (_host, _path);
-
-		for (size_t i = 0; i < 2; i++) {
-			try {
-				// send
-				co_await Conn->Send (_data.data (), _data.size ());
-				break;
-			} catch (...) {
-				if (i == 1) {
-					throw;
+		co_await SessMtx.Lock ();
+		try {
+			auto [_schema, _host, _port, _path] = _parse_url (_r.Url);
+			std::string _conn_flag = fmt::format ("{}://{}:{}", _schema, _host, _port);
+			if (!Conn || ConnFlag != _conn_flag) {
+				ConnFlag = _conn_flag;
+				if (_schema == "https") {
+					Conn = std::shared_ptr<IConn> (new SslConn {});
+				} else {
+					Conn = std::shared_ptr<IConn> (new TcpConn {});
 				}
+				auto _ip = co_await Config::DnsResolve (_host);
+				co_await Conn->Connect (_ip != "" ? _ip : _host, _port);
 			}
-			co_await Conn->Reconnect ();
+
+			_r.Schema = _schema;
+			_r.UrlPath = _path;
+
+			//// cancel
+			//AsyncTimer _timer {};
+			//if (std::chrono::duration_cast<std::chrono::nanoseconds> (_r.Timeout).count () > 0) {
+			//	_timer.WaitCallback (_r.Timeout, [_tconn = std::weak_ptr (Conn)] ()->Task<void> {
+			//		auto _conn = _tconn.lock ();
+			//		if (_conn)
+			//			_conn->Cancel ();
+			//	});
+			//}
+
+			// generate data
+			std::string _data = _r.Serilize (_host, _path);
+
+			for (size_t i = 0; i < 2; i++) {
+				try {
+					// send
+					co_await Conn->Send (_data.data (), _data.size ());
+					break;
+				} catch (...) {
+					if (i == 1)
+						throw;
+				}
+				co_await Conn->Reconnect ();
+			}
+		} catch (...) {
+			SessMtx.Unlock ();
+			throw;
 		}
+		SessMtx.Unlock ();
 
 		// recv
 		Response _ret = co_await Response::GetFromConn (Conn);
@@ -210,97 +197,75 @@ struct Session {
 
 
 inline Task<Response> Head (std::string _url) {
-	Session _sess = co_await Session::FromUrl (_url, "");
-	co_return co_await _sess.DoMethod (Request { _url, MethodType::Head });
+	Session _sess {};
+	co_return co_await _sess.Head (_url);
 }
 template<TOption ..._Ops>
 inline Task<Response> Head (std::string _url, _Ops ..._ops) {
-	Request _r { _url, MethodType::Head };
-	Session _sess = co_await Session::FromUrl (_url, _r.Server);
-	_OptionApplys (_r, _ops...);
-	co_return co_await _sess.DoMethod (_r);
+	Session _sess {};
+	co_return co_await _sess.Head (_url, std::forward<_Ops> (_ops)...);
 }
 
 inline Task<Response> Option (std::string _url) {
-	Session _sess = co_await Session::FromUrl (_url, "");
-	co_return co_await _sess.DoMethod (Request { _url, MethodType::Option });
+	Session _sess {};
+	co_return co_await _sess.Option (_url);
 }
 template<TOption ..._Ops>
 inline Task<Response> Option (std::string _url, _Ops ..._ops) {
-	Request _r { _url, MethodType::Option };
-	Session _sess = co_await Session::FromUrl (_url, _r.Server);
-	_OptionApplys (_r, _ops...);
-	co_return co_await _sess.DoMethod (_r);
+	Session _sess {};
+	co_return co_await _sess.Option (_url, std::forward<_Ops> (_ops)...);
 }
 
 inline Task<Response> Get (std::string _url) {
-	Session _sess = co_await Session::FromUrl (_url, "");
-	co_return co_await _sess.DoMethod (Request { _url, MethodType::Get });
+	Session _sess {};
+	co_return co_await _sess.Get (_url);
 }
 template<TOption ..._Ops>
 inline Task<Response> Get (std::string _url, _Ops ..._ops) {
-	Request _r { _url, MethodType::Get };
-	Session _sess = co_await Session::FromUrl (_url, _r.Server);
-	_OptionApplys (_r, _ops...);
-	co_return co_await _sess.DoMethod (_r);
+	Session _sess {};
+	co_return co_await _sess.Get (_url, std::forward<_Ops> (_ops)...);
 }
 
 template<TFormOption ..._Ops>
 inline Task<Response> Post (std::string _url, _Ops ..._ops) {
-	Request _r { _url, MethodType::Post };
-	Session _sess = co_await Session::FromUrl (_url, _r.Server);
-	_OptionApplys (_r, _ops...);
-	co_return co_await _sess.DoMethod (_r);
+	Session _sess {};
+	co_return co_await _sess.Post (_url, std::forward<_Ops> (_ops)...);
 }
 template<TBodyOption _Body>
 inline Task<Response> Post (std::string _url, _Body _body) {
-	Request _r { _url, MethodType::Post };
-	Session _sess = co_await Session::FromUrl (_url, _r.Server);
-	_OptionApplyBody (_r, _body);
-	co_return co_await _sess.DoMethod (_r);
+	Session _sess {};
+	co_return co_await _sess.Post (_url, std::forward<_Body> (_body));
 }
 template<TBodyOption _Body, TOption ..._Ops>
 inline Task<Response> Post (std::string _url, _Body _body, _Ops ..._ops) {
-	Request _r { _url, MethodType::Post };
-	Session _sess = co_await Session::FromUrl (_url, _r.Server);
-	_OptionApplyBody (_r, _body);
-	_OptionApplys (_r, _ops...);
-	co_return co_await _sess.DoMethod (_r);
+	Session _sess {};
+	co_return co_await _sess.Post (_url, std::forward<_Body> (_body), std::forward<_Ops> (_ops)...);
 }
 
 template<TFormOption ..._Ops>
 inline Task<Response> Put (std::string _url, _Ops ..._ops) {
-	Request _r { _url, MethodType::Put };
-	Session _sess = co_await Session::FromUrl (_url, _r.Server);
-	_OptionApplys (_r, _ops...);
-	co_return co_await _sess.DoMethod (_r);
+	Session _sess {};
+	co_return co_await _sess.Put (_url, std::forward<_Ops> (_ops)...);
 }
 template<TBodyOption _Body>
 inline Task<Response> Put (std::string _url, _Body _body) {
-	Request _r { _url, MethodType::Put };
-	Session _sess = co_await Session::FromUrl (_url, _r.Server);
-	_OptionApplyBody (_r, _body);
-	co_return co_await _sess.DoMethod (_r);
+	Session _sess {};
+	co_return co_await _sess.Put (_url, std::forward<_Body> (_body));
 }
 template<TBodyOption _Body, TOption ..._Ops>
 inline Task<Response> Put (std::string _url, _Body _body, _Ops ..._ops) {
-	Request _r { _url, MethodType::Put };
-	Session _sess = co_await Session::FromUrl (_url, _r.Server);
-	_OptionApplyBody (_r, _body);
-	_OptionApplys (_r, _ops...);
-	co_return co_await _sess.DoMethod (_r);
+	Session _sess {};
+	co_return co_await _sess.Put (_url, std::forward<_Body> (_body), std::forward<_Ops> (_ops)...);
 }
 
 inline Task<Response> Delete (std::string _url) {
-	Session _sess = co_await Session::FromUrl (_url, "");
-	co_return co_await _sess.DoMethod (Request { _url, MethodType::Delete });
+	Session _sess {};
+	co_return co_await _sess.Delete (_url);
 }
 template<TOption ..._Ops>
 inline Task<Response> Delete (std::string _url, _Ops ..._ops) {
-	Request _r { _url, MethodType::Delete };
-	Session _sess = co_await Session::FromUrl (_url, _r.Server);
-	_OptionApplys (_r, _ops...);
-	co_return co_await _sess.DoMethod (_r);
+	Session _sess {};
+	co_return co_await _sess.Delete (_url, std::forward<_Ops> (_ops)...);
 }
 }
 

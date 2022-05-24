@@ -182,7 +182,6 @@ struct Session {
 		co_return co_await DoMethod (_r);
 	}
 
-	template<TFormOption ..._Ops>
 	Task<Response> Delete (std::string _url) {
 		co_return co_await DoMethod (Request { _url, MethodType::Delete });
 	}

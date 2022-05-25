@@ -93,12 +93,12 @@ inline Task<void> TcpConn::Reconnect () {
 		std::regex _r { "(\\d+\\.){3}\\d+" };
 		std::string _ip = m_host;
 		if (!std::regex_match (m_host, _r)) {
-			auto _v = co_await Config::DnsResolve (m_host);
-			if (_v.size () == 0)
-				throw Exception (fmt::format ("Cannot resolve host {}", m_host));
-			_ip = _v [0];
+			_ip = co_await Config::DnsResolve (m_host);
+			if (_ip == "")
+				_ip = m_host;
 		}
 		uint16_t _sport = (uint16_t) std::stoi (m_port);
+		Socket = Tcp::socket { Tasks::GetContext () };
 		co_await Socket.async_connect (Tcp::endpoint { asio::ip::address::from_string (_ip), _sport }, UseAwaitable);
 		if (!Socket.is_open ())
 			throw Exception (fmt::format ("Cannot connect to server {}", m_host));
@@ -191,17 +191,17 @@ inline Task<void> SslConn::Reconnect () {
 	try {
 		Close ();
 		TmpData = "";
-		SslSocket.set_verify_mode (Ssl::verify_peer);
-		SslSocket.set_verify_callback (Config::SslVerifyFunc);
 		std::regex _r { "(\\d+\\.){3}\\d+" };
 		std::string _ip = m_host;
 		if (!std::regex_match (m_host, _r)) {
-			auto _v = co_await Config::DnsResolve (m_host);
-			if (_v.size () == 0)
-				throw Exception (fmt::format ("Cannot resolve host {}", m_host));
-			_ip = _v [0];
+			_ip = co_await Config::DnsResolve (m_host);
+			if (_ip == "")
+				_ip = m_host;
 		}
 		uint16_t _sport = (uint16_t) std::stoi (m_port);
+		SslSocket = Ssl::stream<Tcp::socket> { Tasks::GetContext (), SslCtx };
+		SslSocket.set_verify_mode (Ssl::verify_peer);
+		SslSocket.set_verify_callback (Config::SslVerifyFunc);
 		co_await SslSocket.next_layer ().async_connect (Tcp::endpoint { asio::ip::address::from_string (_ip), _sport }, UseAwaitable);
 		if (!SslSocket.next_layer ().is_open ())
 			throw Exception (fmt::format ("Cannot connect to server {}", m_host));

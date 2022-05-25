@@ -60,7 +60,7 @@ Task<void> test_client () {
 	fv::Session _sess {};
 	fv::Response _r {};
 	while (true) {
-		_r = co_await _sess.Get ("https://www.fawdlstty.com");
+		_r = co_await _sess.Get ("http://www.fawdlstty.com");
 		std::cout << _r.Content.size () << '\n';
 		std::cout << "press any key to continue\n";
 		::_getch ();

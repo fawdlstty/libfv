@@ -67,6 +67,27 @@ Task<void> test_client () {
 	}
 	std::this_thread::sleep_for (std::chrono::seconds (10));
 	fv::Tasks::Stop ();
+
+	//try {
+	//	std::shared_ptr<fv::WsConn> _conn = co_await fv::ConnectWS ("ws://82.157.123.54:9010/ajaxchattest", fv::header ("Origin", "http://coolaf.com"));
+	//	while (true) {
+	//		std::cout << "press any key to continue\n";
+	//		::_getch ();
+
+	//		std::string _str = "hello";
+	//		std::cout << "send" << std::endl;
+	//		co_await _conn->SendText (_str.data (), _str.size ());
+
+	//		std::cout << "recv: ";
+	//		auto [_data, _type] = co_await _conn->Recv ();
+	//		std::cout << _data << std::endl;
+
+	//	}
+	//} catch (std::exception &_e) {
+	//	std::cout << "catch exception: " << _e.what () << std::endl;
+	//} catch (...) {
+	//	std::cout << "catch exception" << std::endl;
+	//}
 }
 
 

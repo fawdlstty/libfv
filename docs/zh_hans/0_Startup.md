@@ -95,4 +95,10 @@ fv::Config::DnsResolve = [] (std::string _host) -> Task<std::vector<std::string>
 	}
 	co_return _v;
 };
+
+// 设置本地客户端IP绑定查询函数
+fv::Config::BindClientIP = [] () -> Task<std::string> {
+	std::string _ip = co_await fv::Config::DnsResolve (asio::ip::host_name ());
+	co_return _ip;
+};
 ```

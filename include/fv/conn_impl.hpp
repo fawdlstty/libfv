@@ -98,12 +98,17 @@ inline Task<void> TcpConn::Reconnect () {
 				_ip = m_host;
 		}
 		uint16_t _sport = (uint16_t) std::stoi (m_port);
-		Socket = Tcp::socket { Tasks::GetContext () };
-		co_await Socket.async_connect (Tcp::endpoint { asio::ip::address::from_string (_ip), _sport }, UseAwaitable);
-		if (!Socket.is_open ())
+		if (Config::BindClientIP) {
+			Tcp::endpoint _ep (asio::ip::address::from_string (co_await Config::BindClientIP ()), 0);
+			Socket = std::make_shared<Tcp::socket> (Tasks::GetContext (), _ep);
+		} else {
+			Socket = std::make_shared<Tcp::socket> (Tasks::GetContext ());
+		}
+		co_await Socket->async_connect (Tcp::endpoint { asio::ip::address::from_string (_ip), _sport }, UseAwaitable);
+		if (!Socket->is_open ())
 			throw Exception (fmt::format ("Cannot connect to server {}", m_host));
 		if (Config::NoDelay)
-			Socket.set_option (Tcp::no_delay { true });
+			Socket->set_option (Tcp::no_delay { true });
 	} catch (...) {
 		ConnMtx.Unlock ();
 		throw;
@@ -112,18 +117,19 @@ inline Task<void> TcpConn::Reconnect () {
 }
 
 inline void TcpConn::Close () {
-	if (Socket.is_open ()) {
+	if (Socket && Socket->is_open ()) {
 		//Socket.shutdown (SocketBase::shutdown_both);
-		Socket.close ();
+		Socket->close ();
 	}
+	Socket = nullptr;
 }
 
 inline Task<void> TcpConn::Send (char *_data, size_t _size) {
-	if (!Socket.is_open ())
+	if (!Socket->is_open ())
 		throw Exception ("Cannot send data to a closed connection.");
 	size_t _sended = 0;
 	while (_sended < _size) {
-		size_t _tmp_send = co_await Socket.async_send (asio::buffer (&_data [_sended], _size - _sended), UseAwaitable);
+		size_t _tmp_send = co_await Socket->async_send (asio::buffer (&_data [_sended], _size - _sended), UseAwaitable);
 		if (_tmp_send == 0)
 			throw Exception ("Connection temp closed.");
 		_sended += _tmp_send;
@@ -131,14 +137,14 @@ inline Task<void> TcpConn::Send (char *_data, size_t _size) {
 }
 
 inline Task<size_t> TcpConn::RecvImpl (char *_data, size_t _size) {
-	if (!Socket.is_open ())
+	if (!Socket->is_open ())
 		co_return 0;
-	size_t _count = co_await Socket.async_read_some (asio::buffer (_data, _size), UseAwaitable);
+	size_t _count = co_await Socket->async_read_some (asio::buffer (_data, _size), UseAwaitable);
 	co_return _count;
 }
 
 inline void TcpConn::Cancel () {
-	Socket.cancel ();
+	Socket->cancel ();
 }
 
 
@@ -199,15 +205,20 @@ inline Task<void> SslConn::Reconnect () {
 				_ip = m_host;
 		}
 		uint16_t _sport = (uint16_t) std::stoi (m_port);
-		SslSocket = Ssl::stream<Tcp::socket> { Tasks::GetContext (), SslCtx };
-		SslSocket.set_verify_mode (Ssl::verify_peer);
-		SslSocket.set_verify_callback (Config::SslVerifyFunc);
-		co_await SslSocket.next_layer ().async_connect (Tcp::endpoint { asio::ip::address::from_string (_ip), _sport }, UseAwaitable);
-		if (!SslSocket.next_layer ().is_open ())
+		if (Config::BindClientIP) {
+			Tcp::endpoint _ep (asio::ip::address::from_string (co_await Config::BindClientIP ()), 0);
+			SslSocket = std::make_shared<Ssl::stream<Tcp::socket>> (Tcp::socket (Tasks::GetContext (), _ep), SslCtx);
+		} else {
+			SslSocket = std::make_shared<Ssl::stream<Tcp::socket>> (Tasks::GetContext (), SslCtx);
+		}
+		SslSocket->set_verify_mode (Ssl::verify_peer);
+		SslSocket->set_verify_callback (Config::SslVerifyFunc);
+		co_await SslSocket->next_layer ().async_connect (Tcp::endpoint { asio::ip::address::from_string (_ip), _sport }, UseAwaitable);
+		if (!SslSocket->next_layer ().is_open ())
 			throw Exception (fmt::format ("Cannot connect to server {}", m_host));
 		if (Config::NoDelay)
-			SslSocket.next_layer ().set_option (Tcp::no_delay { true });
-		co_await SslSocket.async_handshake (Ssl::stream_base::client, UseAwaitable);
+			SslSocket->next_layer ().set_option (Tcp::no_delay { true });
+		co_await SslSocket->async_handshake (Ssl::stream_base::client, UseAwaitable);
 	} catch (...) {
 		ConnMtx.Unlock ();
 		throw;
@@ -216,18 +227,19 @@ inline Task<void> SslConn::Reconnect () {
 }
 
 inline void SslConn::Close () {
-	if (SslSocket.next_layer ().is_open ()) {
+	if (SslSocket && SslSocket->next_layer ().is_open ()) {
 		//SslSocket.next_layer ().shutdown (SocketBase::shutdown_both);
-		SslSocket.next_layer ().close ();
+		SslSocket->next_layer ().close ();
 	}
+	SslSocket = nullptr;
 }
 
 inline Task<void> SslConn::Send (char *_data, size_t _size) {
-	if (!SslSocket.next_layer ().is_open ())
+	if (!SslSocket->next_layer ().is_open ())
 		throw Exception ("Cannot send data to a closed connection.");
 	size_t _sended = 0;
 	while (_sended < _size) {
-		size_t _tmp_send = co_await SslSocket.async_write_some (asio::buffer (&_data [_sended], _size - _sended), UseAwaitable);
+		size_t _tmp_send = co_await SslSocket->async_write_some (asio::buffer (&_data [_sended], _size - _sended), UseAwaitable);
 		if (_tmp_send == 0)
 			throw Exception ("Connection temp closed.");
 		_sended += _tmp_send;
@@ -235,11 +247,11 @@ inline Task<void> SslConn::Send (char *_data, size_t _size) {
 }
 
 inline Task<size_t> SslConn::RecvImpl (char *_data, size_t _size) {
-	co_return co_await SslSocket.async_read_some (asio::buffer (_data, _size), UseAwaitable);
+	co_return co_await SslSocket->async_read_some (asio::buffer (_data, _size), UseAwaitable);
 }
 
 inline void SslConn::Cancel () {
-	SslSocket.next_layer ().cancel ();
+	SslSocket->next_layer ().cancel ();
 }
 
 
@@ -277,8 +289,12 @@ inline Task<size_t> SslConn2::RecvImpl (char *_data, size_t _size) {
 
 
 
-inline WsConn::WsConn (std::shared_ptr<IConn2> _parent, bool _is_client): Parent (_parent), IsClient (_is_client) {
-	fv::Tasks::RunAsync ([_wptr = std::weak_ptr (shared_from_this ())] () -> Task<void> {
+inline WsConn::WsConn (std::shared_ptr<IConn2> _parent, bool _is_client): Parent (_parent), IsClient (_is_client) {}
+
+
+
+inline void WsConn::Init () {
+	fv::Tasks::RunAsync ([_wptr = std::weak_ptr (shared_from_this ())] ()->Task<void> {
 		while (true) {
 			co_await Tasks::Delay (Config::WebsocketAutoPing);
 			auto _ptr = _wptr.lock ();
@@ -345,14 +361,14 @@ inline Task<void> WsConn::_Send (char *_data, size_t _size, WsType _type) {
 	}
 	std::stringstream _ss;
 	_ss << (char) (0x80 | (char) _type);
-	static std::vector<char> _mask = { (char) 0xfa, (char) 0xfb, (char) 0xfc, (char) 0xfd };
+	static std::vector<char> _mask = { 0, 0, 0, 0 };
 	if (_size > 0) {
-		if (_size < 126) {
-			_ss << (char) (_size);
+		if (_size < 0x7e) {
+			_ss << (char) (IsClient ? (0x80 | _size) : _size);
 		} else if (_size < 0xffff) {
-			_ss << (char) (126) << (char) ((_size >> 8) & 0xff) << (char) (_size & 0xff);
+			_ss << (char) (IsClient ? 0xfe : 0x7e) << (char) ((_size >> 8) & 0xff) << (char) (_size & 0xff);
 		} else {
-			_ss << (char) (127);
+			_ss << (char) (IsClient ? 0xff : 0x7f);
 			int64_t _size64 = (int64_t) _size;
 			for (int i = 7; i >= 0; --i)
 				_ss << (char) ((_size64 >> (i * 8)) & 0xff);
@@ -362,21 +378,17 @@ inline Task<void> WsConn::_Send (char *_data, size_t _size, WsType _type) {
 				_ss << _mask [i];
 		}
 		_ss << std::string_view { _data, _size };
-	} else {
-		_ss << '\0';
 	}
 	std::string _to_send = _ss.str ();
 	if (IsClient) {
-		for (size_t i = 6; i < _to_send.size (); ++i)
-			_to_send [i] ^= _mask [i % 4];
+		//for (size_t i = _to_send.size () - _size; i < _to_send.size (); ++i)
+		//	_to_send [i] ^= _mask [i % 4];
 	}
-	if (_type == WsType::Close) {
-		try {
-			co_await Parent->Send (_to_send.data (), _to_send.size ());
-		} catch (...) {
-		}
-	} else {
+	try {
 		co_await Parent->Send (_to_send.data (), _to_send.size ());
+	} catch (...) {
+		if (_type != WsType::Close)
+			throw;
 	}
 }
 
@@ -396,7 +408,8 @@ inline Task<std::shared_ptr<IConn>> Connect (std::string _url) {
 	}
 }
 
-inline Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url) {
+template<TOption ..._Ops>
+inline Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url, _Ops ..._ops) {
 	auto [_schema, _host, _port, _path] = _parse_url (_url);
 	if (_schema == "ws" || _schema == "wss") {
 		// connect
@@ -405,19 +418,22 @@ inline Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url) {
 
 		// generate data
 		Request _r { _url, MethodType::Get };
-		_r.Headers ["Pragma"] = "no-cache";
 		_r.Headers ["Connection"] = "Upgrade";
 		_r.Headers ["Upgrade"] = "websocket";
 		_r.Headers ["Sec-WebSocket-Version"] = "13";
-		_r.Headers ["Sec-WebSocket-Key"] = "libfvlibfv==";
-		std::string _data = _r.Serilize (_host, _path);
+		_r.Headers ["Sec-WebSocket-Key"] = base64_encode (random_str (14));
+		_r.Headers ["Sec-WebSocket-Extensions"] = "chat";
+		_OptionApplys (_r, _ops...);
+		std::string _data = _r.Serilize (_host, _port, _path);
 
 		// send
 		co_await _conn->Send (_data.data (), _data.size ());
 
 		// recv
 		co_await Response::GetFromConn (_conn);
-		co_return std::make_shared<WsConn> (_conn, true);
+		auto _wsconn = std::make_shared<WsConn> (_conn, true);
+		_wsconn->Init ();
+		co_return _wsconn;
 	} else {
 		throw Exception (fmt::format ("Unknown protocol: {}", _schema));
 	}

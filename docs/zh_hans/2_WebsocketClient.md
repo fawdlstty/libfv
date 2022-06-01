@@ -6,6 +6,12 @@
 std::shared_ptr<fv::WsConn> _conn = co_await fv::ConnectWS ("wss://t.cn/ws");
 ```
 
+建立 `Websocket` 连接可附加 `HTTP` 参数，参考 `Http 客户端` 章节。示例：
+
+```cpp
+std::shared_ptr<fv::WsConn> _conn = co_await fv::ConnectWS ("wss://t.cn/ws", fv::header ("Origin", "https://a.cn"));
+```
+
 ## 循环接收数据
 
 ```cpp

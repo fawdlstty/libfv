@@ -45,13 +45,13 @@ struct IConn: public IConn2 {
 
 
 struct TcpConn: public IConn {
-	Tcp::socket Socket { Tasks::GetContext () };
+	std::shared_ptr<Tcp::socket> Socket;
 	AsyncMutex ConnMtx {};
 
 	virtual ~TcpConn () { Cancel (); Close (); }
 	Task<void> Connect (std::string _host, std::string _port) override;
 	Task<void> Reconnect () override;
-	bool IsConnect () override { return Socket.is_open (); }
+	bool IsConnect () override { return Socket->is_open (); }
 	void Close () override;
 	Task<void> Send (char *_data, size_t _size) override;
 	void Cancel () override;
@@ -82,13 +82,13 @@ protected:
 
 struct SslConn: public IConn {
 	Ssl::context SslCtx { Config::SslClientVer };
-	Ssl::stream<Tcp::socket> SslSocket { Tasks::GetContext (), SslCtx };
+	std::shared_ptr<Ssl::stream<Tcp::socket>> SslSocket;
 	AsyncMutex ConnMtx {};
 
 	virtual ~SslConn () { Cancel (); Close (); }
 	Task<void> Connect (std::string _host, std::string _port) override;
 	Task<void> Reconnect () override;
-	bool IsConnect () override { return SslSocket.next_layer ().is_open (); }
+	bool IsConnect () override { return SslSocket->next_layer ().is_open (); }
 	void Close () override;
 	Task<void> Send (char *_data, size_t _size) override;
 	void Cancel () override;
@@ -124,10 +124,15 @@ struct WsConn: public std::enable_shared_from_this<WsConn> {
 
 	WsConn (std::shared_ptr<IConn2> _parent, bool _is_client);
 	~WsConn () { Close (); }
+	void Init ();
 	bool IsConnect () { return Parent && Parent->IsConnect (); }
 	Task<void> SendText (char *_data, size_t _size) { co_await _Send (_data, _size, WsType::Text); }
 	Task<void> SendBinary (char *_data, size_t _size) { co_await _Send (_data, _size, WsType::Binary); }
-	Task<void> Close () { Run.store (false); co_await _Send (nullptr, 0, WsType::Close); Parent = nullptr; }
+	Task<void> Close () {
+		Run.store (false);
+		co_await _Send (nullptr, 0, WsType::Close);
+		Parent = nullptr;
+	}
 	Task<std::tuple<std::string, WsType>> Recv ();
 
 private:

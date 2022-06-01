@@ -54,7 +54,12 @@ inline Task<Request> Request::GetFromConn (std::shared_ptr<IConn2> _conn, uint16
 	std::string _port = "";
 	if (!((_listen_port == 80 && (_r.Schema == "http" || _r.Schema == "ws")) || (_listen_port == 443 && (_r.Schema == "https" || _r.Schema == "wss"))))
 		_port = fmt::format (":{}", _listen_port);
-	_r.Url = fmt::format ("{}://{}{}{}", _r.Schema, _r.Headers ["Host"], _port, _r.UrlPath);
+	std::string _host = _r.Headers ["Host"];
+	if (_host.find (':') != std::string::npos) {
+		_r.Url = fmt::format ("{}://{}{}", _r.Schema, _host, _r.UrlPath);
+	} else {
+		_r.Url = fmt::format ("{}://{}{}{}", _r.Schema, _host, _port, _r.UrlPath);
+	}
 	if (_r.Headers.contains ("Content-Length")) {
 		size_t _p = std::stoi (_r.Headers ["Content-Length"]);
 		_r.Content = co_await _conn->ReadCount (_p);
@@ -63,12 +68,17 @@ inline Task<Request> Request::GetFromConn (std::shared_ptr<IConn2> _conn, uint16
 	co_return _r;
 }
 
-inline std::string Request::Serilize (std::string _host, std::string _path) {
+inline std::string Request::Serilize (std::string _host, std::string _port, std::string _path) {
 	std::stringstream _ss;
 	static std::unordered_map<MethodType, std::string> s_method_names { { MethodType::Head, "HEAD" }, { MethodType::Option, "OPTION" }, { MethodType::Get, "GET" }, { MethodType::Post, "POST" }, { MethodType::Put, "PUT" }, { MethodType::Delete, "DELETE" } };
 	_ss << s_method_names [Method] << " " << _path << " HTTP/1.1\r\n";
-	if (!Headers.contains ("Host"))
-		Headers ["Host"] = _host;
+	if (!Headers.contains ("Host")) {
+		if (((Schema == "http" || Schema == "ws") && _port == "80") || ((Schema == "https" || Schema == "wss") && _port == "443")) {
+			Headers ["Host"] = _host;
+		} else {
+			Headers ["Host"] = fmt::format ("{}:{}", _host, _port);
+		}
+	}
 	if (Content.size () == 0 && ContentItems.size () > 0) {
 		std::string _content_type = Headers ["Content-Type"], _boundary = "";
 		if (_content_type == "") {
@@ -136,8 +146,9 @@ inline std::string Request::Serilize (std::string _host, std::string _path) {
 			Headers ["Content-Type"] = Content [0] == '{' ? "application/json" : "application/x-www-form-urlencoded";
 	}
 	// TODO cookies -> headers
-	for (auto &[_key, _value] : Headers)
+	for (auto &[_key, _value] : Headers) {
 		_ss << _key << ": " << _value << "\r\n";
+	}
 	_ss << "\r\n";
 	_ss << Content;
 	return _ss.str ();

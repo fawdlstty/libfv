@@ -6,6 +6,12 @@
 std::shared_ptr<fv::WsConn> _conn = co_await fv::ConnectWS ("wss://t.cn/ws");
 ```
 
+To create `Websocket` connection, you can attach `HTTP` arguments, reference `HTTP Client` section. Example:
+
+```cpp
+std::shared_ptr<fv::WsConn> _conn = co_await fv::ConnectWS ("wss://t.cn/ws", fv::header ("Origin", "https://a.cn"));
+```
+
 ## Loop to receive content and print
 
 ```cpp

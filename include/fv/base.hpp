@@ -30,9 +30,7 @@ struct Config {
 		auto _it = co_await _resolver.async_resolve (_host, "", UseAwaitable);
 		co_return _it.begin ()->endpoint ().address ().to_string ();
 	};
-	//inline static std::function<Task<std::optional<std::string>> ()> BindClientIP = [] () -> Task<std::optional<std::string>> {
-	//	co_return std::nullopt;
-	//};
+	inline static std::function<Task<std::string> ()> BindClientIP;
 };
 
 

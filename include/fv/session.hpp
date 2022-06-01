@@ -87,7 +87,7 @@ struct Session {
 			//}
 
 			// generate data
-			std::string _data = _r.Serilize (_host, _path);
+			std::string _data = _r.Serilize (_host, _port, _path);
 
 			for (size_t i = 0; i < 2; i++) {
 				try {

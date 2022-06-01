@@ -41,7 +41,7 @@ struct Request {
 	static CaseInsensitiveMap DefaultHeaders () { return m_def_headers; }
 	static void SetDefaultHeader (std::string _key, std::string _value) { m_def_headers [_key] = _value; }
 
-	std::string Serilize (std::string _host, std::string _path);
+	std::string Serilize (std::string _host, std::string _port, std::string _path);
 	bool IsWebsocket ();
 	Task<std::shared_ptr<WsConn>> UpgradeWebsocket ();
 	bool IsUpgraded () { return Upgrade; }
@@ -51,7 +51,7 @@ private:
 	std::shared_ptr<IConn2> Conn;
 	bool Upgrade = false;
 
-	inline static CaseInsensitiveMap m_def_headers { { "Accept", "*/*" }, { "Accept-Encoding", "gzip" }, { "Cache-Control", "no-cache" }, { "Connection", "keep-alive" }, { "User-Agent", "libfv-0.0.2" } };
+	inline static CaseInsensitiveMap m_def_headers { { "Accept", "*/*" }, { "Accept-Encoding", "gzip" }, { "Accept-Language", "zh-CN,zh,q=0.9" }, { "Pragma", "no-cache" }, { "Cache-Control", "no-cache" }, { "Connection", "keep-alive" }, { "User-Agent", "libfv-0.0.5" } };
 };
 
 

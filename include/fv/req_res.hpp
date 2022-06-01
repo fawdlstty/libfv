@@ -51,7 +51,7 @@ private:
 	std::shared_ptr<IConn2> Conn;
 	bool Upgrade = false;
 
-	inline static CaseInsensitiveMap m_def_headers { { "Accept", "*/*" }, { "Accept-Encoding", "gzip" }, { "Accept-Language", "zh-CN,zh,q=0.9" }, { "Pragma", "no-cache" }, { "Cache-Control", "no-cache" }, { "Connection", "keep-alive" }, { "User-Agent", "libfv-0.0.5" } };
+	inline static CaseInsensitiveMap m_def_headers { { "Accept", "*/*" }, { "Accept-Encoding", "gzip" }, { "Accept-Language", "zh-CN,zh,q=0.9" }, { "Pragma", "no-cache" }, { "Cache-Control", "no-cache" }, { "Connection", "keep-alive" }, { "User-Agent", version } };
 };
 
 

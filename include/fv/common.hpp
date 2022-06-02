@@ -10,7 +10,7 @@
 #include <thread>
 #include <unordered_map>
 
-#ifdef ASIO_STANDALONE
+#ifndef FV_USE_BOOST_ASIO
 #ifndef ASIO_HAS_CO_AWAIT
 #define ASIO_HAS_CO_AWAIT
 #endif
@@ -27,7 +27,7 @@
 
 
 namespace fv {
-#ifndef ASIO_STANDALONE
+#ifdef FV_USE_BOOST_ASIO
 namespace asio = boost::asio;
 #endif
 

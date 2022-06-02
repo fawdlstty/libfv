@@ -4,6 +4,5 @@
 - UDP Server/Client
 - SSL Server/Https Server
 - Cancellation
-- Dns Cache
-- Websocket reconnect
+- Transfer progress callback
 - HTTP breakpoint resume (server/client)

@@ -23,8 +23,8 @@ Then add the include folder in the repository to your project's header search pa
 ## Initialize
 
 ```cpp
-// Import header file (Macro need to be defined if use standalone asio)
-#define ASIO_STANDALONE
+// Import header file (default dependency on asio, macro need to be defined if use boost::asio)
+#define FV_USE_BOOST_ASIO
 #include <fv/fv.hpp>
 
 // Main function

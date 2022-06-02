@@ -128,11 +128,7 @@ struct WsConn: public std::enable_shared_from_this<WsConn> {
 	bool IsConnect () { return Parent && Parent->IsConnect (); }
 	Task<void> SendText (char *_data, size_t _size) { co_await _Send (_data, _size, WsType::Text); }
 	Task<void> SendBinary (char *_data, size_t _size) { co_await _Send (_data, _size, WsType::Binary); }
-	Task<void> Close () {
-		Run.store (false);
-		co_await _Send (nullptr, 0, WsType::Close);
-		Parent = nullptr;
-	}
+	Task<void> Close () { Run.store (false); co_await _Send (nullptr, 0, WsType::Close); Parent = nullptr; }
 	Task<std::tuple<std::string, WsType>> Recv ();
 
 private:

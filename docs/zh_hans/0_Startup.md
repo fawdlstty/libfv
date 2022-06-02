@@ -23,8 +23,8 @@ git clone git@github.com:fawdlstty/libfv.git
 ## 初始化
 
 ```cpp
-// 引入库头文件（使用独立asio则需定义宏）
-#define ASIO_STANDALONE
+// 引入库头文件（默认依赖独立asio，改用boost::asio则需定义宏）
+//#define FV_USE_BOOST_ASIO
 #include <fv/fv.hpp>
 
 // 主函数

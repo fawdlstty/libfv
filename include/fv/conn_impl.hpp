@@ -361,7 +361,7 @@ inline Task<void> WsConn::_Send (char *_data, size_t _size, WsType _type) {
 	}
 	std::stringstream _ss;
 	_ss << (char) (0x80 | (char) _type);
-	static std::vector<char> _mask = { 0, 0, 0, 0 };
+	static std::vector<char> _mask = { (char) 0xfa, (char) 0xfb, (char) 0xfc, (char) 0xfd };
 	if (_size > 0) {
 		if (_size < 0x7e) {
 			_ss << (char) (IsClient ? (0x80 | _size) : _size);
@@ -381,8 +381,8 @@ inline Task<void> WsConn::_Send (char *_data, size_t _size, WsType _type) {
 	}
 	std::string _to_send = _ss.str ();
 	if (IsClient) {
-		//for (size_t i = _to_send.size () - _size; i < _to_send.size (); ++i)
-		//	_to_send [i] ^= _mask [i % 4];
+		for (size_t i = 0, _offset = _to_send.size () - _size; i < _size; ++i)
+			_to_send [_offset + i] ^= _mask [i % 4];
 	}
 	try {
 		co_await Parent->Send (_to_send.data (), _to_send.size ());
@@ -412,21 +412,28 @@ template<TOption ..._Ops>
 inline Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url, _Ops ..._ops) {
 	auto [_schema, _host, _port, _path] = _parse_url (_url);
 	if (_schema == "ws" || _schema == "wss") {
-		// connect
-		auto _conn = std::shared_ptr<IConn> (_schema == "ws" ? (IConn *) new TcpConn {} : new SslConn {});
-		co_await _conn->Connect (_host, _port);
-
 		// generate data
 		Request _r { _url, MethodType::Get };
 		_r.Headers ["Connection"] = "Upgrade";
 		_r.Headers ["Upgrade"] = "websocket";
 		_r.Headers ["Sec-WebSocket-Version"] = "13";
 		_r.Headers ["Sec-WebSocket-Key"] = base64_encode (random_str (14));
-		_r.Headers ["Sec-WebSocket-Extensions"] = "chat";
+		//_r.Headers ["Sec-WebSocket-Extensions"] = "chat";
 		_OptionApplys (_r, _ops...);
-		std::string _data = _r.Serilize (_host, _port, _path);
+
+		std::string _ip = _r.Server != "" ? _r.Server : _host;
+		if (!std::regex_match (m_host, _r)) {
+			_ip = co_await Config::DnsResolve (m_host);
+			if (_ip == "")
+				_ip = m_host;
+		}
+
+		// connect
+		auto _conn = std::shared_ptr<IConn> (_schema == "ws" ? (IConn *) new TcpConn {} : new SslConn {});
+		co_await _conn->Connect (_host, _port);
 
 		// send
+		std::string _data = _r.Serilize (_host, _port, _path);
 		co_await _conn->Send (_data.data (), _data.size ());
 
 		// recv

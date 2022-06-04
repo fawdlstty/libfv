@@ -8,6 +8,8 @@ libfv 是 C++20 纯头文件网络库，支持 TCP/SSL/Http/websocket 服务器�
 
 库除了提供网络功能外，还提供多种异步工具，比如定时器、信号量等。
 
+技术交流：[点击链接加入群【1018390466】](https://jq.qq.com/?_wv=1027&k=7ZQLihbT)
+
 ## 文档
 
 [English Document](http://libfv.fawdlstty.com/en_us/)

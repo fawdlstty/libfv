@@ -8,6 +8,8 @@ You can use pure asynchronous networking with it, or you can use asynchronous wr
 
 In addition to providing network functions, the library also provides a variety of asynchronous tools, such as timers, semaphores, etc.
 
+技术交流：[点击链接加入群【1018390466】](https://jq.qq.com/?_wv=1027&k=7ZQLihbT)
+
 ## Document
 
 [English Document](http://libfv.fawdlstty.com/en_us/)

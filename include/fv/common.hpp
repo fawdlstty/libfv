@@ -149,7 +149,7 @@ private:
 	}
 
 	bool m_locked = false;
-	std::mutex m_mtx;
+	std::recursive_mutex m_mtx {};
 };
 
 
@@ -213,7 +213,7 @@ private:
 	}
 
 	size_t m_count;
-	std::mutex m_mtx;
+	std::recursive_mutex m_mtx {};
 };
 
 struct CancelToken {
@@ -313,7 +313,7 @@ struct Tasks {
 	}
 
 private:
-	inline static std::mutex m_mtx;
+	inline static std::recursive_mutex m_mtx {};
 	inline static IoContext *m_ctx = nullptr;
 	inline static bool m_run = false, m_running = false, m_extern_ctx = false;
 };

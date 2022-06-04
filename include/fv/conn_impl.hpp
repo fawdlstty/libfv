@@ -90,9 +90,9 @@ inline Task<void> TcpConn::Reconnect () {
 	try {
 		Close ();
 		TmpData = "";
-		std::regex _r { "(\\d+\\.){3}\\d+" };
+		std::regex _rgx { "(\\d+\\.){3}\\d+" };
 		std::string _ip = m_host;
-		if (!std::regex_match (m_host, _r)) {
+		if (!std::regex_match (m_host, _rgx)) {
 			_ip = co_await Config::DnsResolve (m_host);
 			if (_ip == "")
 				_ip = m_host;
@@ -197,9 +197,9 @@ inline Task<void> SslConn::Reconnect () {
 	try {
 		Close ();
 		TmpData = "";
-		std::regex _r { "(\\d+\\.){3}\\d+" };
+		std::regex _rgx { "(\\d+\\.){3}\\d+" };
 		std::string _ip = m_host;
-		if (!std::regex_match (m_host, _r)) {
+		if (!std::regex_match (m_host, _rgx)) {
 			_ip = co_await Config::DnsResolve (m_host);
 			if (_ip == "")
 				_ip = m_host;
@@ -421,16 +421,18 @@ inline Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url, _Ops ..._ops) 
 		//_r.Headers ["Sec-WebSocket-Extensions"] = "chat";
 		_OptionApplys (_r, _ops...);
 
-		std::string _ip = _r.Server != "" ? _r.Server : _host;
-		if (!std::regex_match (m_host, _r)) {
-			_ip = co_await Config::DnsResolve (m_host);
+		_r.Server = _r.Server != "" ? _r.Server : _host;
+		std::string _ip = _r.Server;
+		std::regex _rgx { "(\\d+\\.){3}\\d+" };
+		if (!std::regex_match (_ip, _rgx)) {
+			_ip = co_await Config::DnsResolve (_ip);
 			if (_ip == "")
-				_ip = m_host;
+				_ip = _r.Server;
 		}
 
 		// connect
 		auto _conn = std::shared_ptr<IConn> (_schema == "ws" ? (IConn *) new TcpConn {} : new SslConn {});
-		co_await _conn->Connect (_host, _port);
+		co_await _conn->Connect (_ip, _port);
 
 		// send
 		std::string _data = _r.Serilize (_host, _port, _path);

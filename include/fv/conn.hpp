@@ -72,7 +72,7 @@ struct TcpConn2: public IConn2 {
 	bool IsConnect () override { return Socket.is_open (); }
 	void Close () override;
 	Task<void> Send (char *_data, size_t _size) override;
-	void Cancel () override { Socket.cancel (); }
+	void Cancel () override;
 
 protected:
 	Task<size_t> RecvImpl (char *_data, size_t _size) override;
@@ -88,7 +88,7 @@ struct SslConn: public IConn {
 	virtual ~SslConn () { Cancel (); Close (); }
 	Task<void> Connect (std::string _host, std::string _port) override;
 	Task<void> Reconnect () override;
-	bool IsConnect () override { return SslSocket->next_layer ().is_open (); }
+	bool IsConnect () override { return SslSocket && SslSocket->next_layer ().is_open (); }
 	void Close () override;
 	Task<void> Send (char *_data, size_t _size) override;
 	void Cancel () override;
@@ -109,7 +109,7 @@ struct SslConn2: public IConn2 {
 	bool IsConnect () override { return SslSocket.next_layer ().is_open (); }
 	void Close () override;
 	Task<void> Send (char *_data, size_t _size) override;
-	void Cancel () override { SslSocket.next_layer ().cancel (); }
+	void Cancel () override;
 
 protected:
 	Task<size_t> RecvImpl (char *_data, size_t _size) override;

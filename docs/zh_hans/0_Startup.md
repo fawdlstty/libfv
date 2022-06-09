@@ -2,23 +2,11 @@
 
 ## 配置 `vcpkg` 环境
 
-libfv 依赖 vcpkg 环境，因此在使用 libfv 之前需配置
+首先通过 `vcpkg` 安装 `libfv`
 
 ```
-# 安装依赖包
-vcpkg install asio fmt gzip-hpp nlohmann-json openssl zlib
-# `asio` 可换成 `boost-asio`
+vcpkg install fawdlstty-libfv
 ```
-
-## 配置 libfv 环境
-
-首先克隆 libfv 仓库
-
-```
-git clone git@github.com:fawdlstty/libfv.git
-```
-
-然后将仓库内 include 文件夹添加到你的项目的头文件搜索路径。如果这步不会，那么将仓库内 `include/fv` 文件夹拷贝到你的项目内，后续通过 `#include "fv/fv.hpp"` 引用即可。
 
 ## 初始化
 

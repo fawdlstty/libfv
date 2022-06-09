@@ -2,23 +2,11 @@
 
 ## Configure vcpkg
 
-libfv depends on the VCPKG environment. Therefore, you need to configure it before using libfv.
+First install `libfv` through `vcpkg`
 
 ```
-# Installing dependency packages
-vcpkg install asio fmt gzip-hpp nlohmann-json openssl zlib
-# `asio` can be changed to `boost-asio`
+vcpkg install fawdlstty-libfv
 ```
-
-## Configure libfv
-
-First, clone the libfv repository
-
-```
-git clone git@github.com:fawdlstty/libfv.git
-```
-
-Then add the include folder in the repository to your project's header search path. If this step does not work, copy the `include/fv` folder from the repository into your project and reference it later via `#include "fv/fv.hpp"`.
 
 ## Initialize
 

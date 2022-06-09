@@ -59,6 +59,7 @@ struct Session {
 
 	Task<Response> DoMethod (Request _r) {
 		co_await SessMtx.Lock ();
+		bool _is_lock = true;
 		try {
 			auto [_schema, _host, _port, _path] = _parse_url (_r.Url);
 			std::string _conn_flag = fmt::format ("{}://{}:{}", _schema, _host, _port);
@@ -100,16 +101,20 @@ struct Session {
 				}
 				co_await Conn->Reconnect ();
 			}
-		} catch (...) {
+
 			SessMtx.Unlock ();
+			_is_lock = false;
+
+			// recv
+			Response _ret = co_await Response::GetFromConn (Conn);
+			//_timer.Cancel ();
+			co_return _ret;
+		} catch (...) {
+			if (_is_lock)
+				SessMtx.Unlock ();
+			Conn = nullptr;
 			throw;
 		}
-		SessMtx.Unlock ();
-
-		// recv
-		Response _ret = co_await Response::GetFromConn (Conn);
-		//_timer.Cancel ();
-		co_return _ret;
 	}
 
 	Task<Response> Head (std::string _url) {

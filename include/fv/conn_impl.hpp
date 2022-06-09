@@ -117,11 +117,14 @@ inline Task<void> TcpConn::Reconnect () {
 }
 
 inline void TcpConn::Close () {
-	if (Socket && Socket->is_open ()) {
-		//Socket.shutdown (SocketBase::shutdown_both);
-		Socket->close ();
+	try {
+		if (Socket && Socket->is_open ()) {
+			//Socket.shutdown (SocketBase::shutdown_both);
+			Socket->close ();
+		}
+		Socket = nullptr;
+	} catch (...) {
 	}
-	Socket = nullptr;
 }
 
 inline Task<void> TcpConn::Send (char *_data, size_t _size) {
@@ -144,7 +147,11 @@ inline Task<size_t> TcpConn::RecvImpl (char *_data, size_t _size) {
 }
 
 inline void TcpConn::Cancel () {
-	Socket->cancel ();
+	try {
+		if (Socket)
+			Socket->cancel ();
+	} catch (...) {
+	}
 }
 
 
@@ -170,6 +177,13 @@ inline Task<void> TcpConn2::Send (char *_data, size_t _size) {
 		if (_tmp_send == 0)
 			throw Exception ("Connection temp closed.");
 		_sended += _tmp_send;
+	}
+}
+
+inline void TcpConn2::Cancel () {
+	try {
+		Socket.cancel ();
+	} catch (...) {
 	}
 }
 
@@ -251,7 +265,11 @@ inline Task<size_t> SslConn::RecvImpl (char *_data, size_t _size) {
 }
 
 inline void SslConn::Cancel () {
-	SslSocket->next_layer ().cancel ();
+	try {
+		if (SslSocket)
+			SslSocket->next_layer ().cancel ();
+	} catch (...) {
+	}
 }
 
 
@@ -262,9 +280,12 @@ inline SslConn2::SslConn2 (Ssl::stream<Tcp::socket> _sock): SslSocket (std::move
 }
 
 inline void SslConn2::Close () {
-	if (SslSocket.next_layer ().is_open ()) {
-		//SslSocket.next_layer ().shutdown (SocketBase::shutdown_both);
-		SslSocket.next_layer ().close ();
+	try {
+		if (SslSocket.next_layer ().is_open ()) {
+			//SslSocket.next_layer ().shutdown (SocketBase::shutdown_both);
+			SslSocket.next_layer ().close ();
+		}
+	} catch (...) {
 	}
 }
 
@@ -277,6 +298,13 @@ inline Task<void> SslConn2::Send (char *_data, size_t _size) {
 		if (_tmp_send == 0)
 			throw Exception ("Connection temp closed.");
 		_sended += _tmp_send;
+	}
+}
+
+inline void SslConn2::Cancel () {
+	try {
+		SslSocket->next_layer ().cancel ();
+	} catch (...) {
 	}
 }
 

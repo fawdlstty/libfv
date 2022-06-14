@@ -303,7 +303,7 @@ inline Task<void> SslConn2::Send (char *_data, size_t _size) {
 
 inline void SslConn2::Cancel () {
 	try {
-		SslSocket->next_layer ().cancel ();
+		SslSocket.next_layer ().cancel ();
 	} catch (...) {
 	}
 }

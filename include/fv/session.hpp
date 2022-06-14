@@ -4,6 +4,7 @@
 
 
 #include <memory>
+#include <vector>
 
 #include "common.hpp"
 #include "common_funcs.hpp"
@@ -55,6 +56,8 @@ struct Session {
 	AsyncMutex SessMtx {};
 
 	Session () {}
+	Session (const Session &_sess): Conn (_sess.Conn), ConnFlag (_sess.ConnFlag) {}
+	Session &operator= (const Session &_sess) { Conn = _sess.Conn; ConnFlag = _sess.ConnFlag; return *this; }
 	bool IsConnect () { return Conn && Conn->IsConnect (); }
 
 	Task<Response> DoMethod (Request _r) {
@@ -200,76 +203,135 @@ struct Session {
 
 
 
+struct SessionPool {
+	inline static std::mutex m_mtx;
+	inline static std::map<std::string, std::vector<Session>> m_pool;
+
+	inline static Session GetSession (std::string _url) {
+		auto [_schema, _host, _port, _path] = _parse_url (_url);
+		std::string _conn_flag = fmt::format ("{}://{}:{}", _schema, _host, _port);
+		std::unique_lock _ul { m_mtx };
+		if (m_pool.contains (_conn_flag)) {
+			auto &_v = m_pool [_conn_flag];
+			if (!_v.empty ()) {
+				Session _sess = _v [0];
+				_v.erase (_v.begin ());
+				return _sess;
+			}
+		} else {
+			m_pool [_conn_flag] = std::vector<Session> {};
+		}
+
+		_ul.unlock ();
+		return Session {};
+	}
+
+	inline static void FreeSession (const Session &_sess) {
+		std::unique_lock _ul { m_mtx };
+		m_pool [_sess.ConnFlag].emplace_back (_sess);
+	}
+};
+
+
+
 inline Task<Response> Head (std::string _url) {
-	Session _sess {};
-	co_return co_await _sess.Head (_url);
+	Session _sess = SessionPool::GetSession (_url);
+	Response _ret = co_await _sess.Head (_url);
+	SessionPool::FreeSession (_sess);
+	co_return _ret;
 }
 template<TOption ..._Ops>
 inline Task<Response> Head (std::string _url, _Ops ..._ops) {
-	Session _sess {};
-	co_return co_await _sess.Head (_url, std::forward<_Ops> (_ops)...);
+	Session _sess = SessionPool::GetSession (_url);
+	Response _ret = co_await _sess.Head (_url, std::forward<_Ops> (_ops)...);
+	SessionPool::FreeSession (_sess);
+	co_return _ret;
 }
 
 inline Task<Response> Option (std::string _url) {
-	Session _sess {};
-	co_return co_await _sess.Option (_url);
+	Session _sess = SessionPool::GetSession (_url);
+	Response _ret = co_await _sess.Option (_url);
+	SessionPool::FreeSession (_sess);
+	co_return _ret;
 }
 template<TOption ..._Ops>
 inline Task<Response> Option (std::string _url, _Ops ..._ops) {
-	Session _sess {};
-	co_return co_await _sess.Option (_url, std::forward<_Ops> (_ops)...);
+	Session _sess = SessionPool::GetSession (_url);
+	Response _ret = co_await _sess.Option (_url, std::forward<_Ops> (_ops)...);
+	SessionPool::FreeSession (_sess);
+	co_return _ret;
 }
 
 inline Task<Response> Get (std::string _url) {
-	Session _sess {};
-	co_return co_await _sess.Get (_url);
+	Session _sess = SessionPool::GetSession (_url);
+	Response _ret = co_await _sess.Get (_url);
+	SessionPool::FreeSession (_sess);
+	co_return _ret;
 }
 template<TOption ..._Ops>
 inline Task<Response> Get (std::string _url, _Ops ..._ops) {
-	Session _sess {};
-	co_return co_await _sess.Get (_url, std::forward<_Ops> (_ops)...);
+	Session _sess = SessionPool::GetSession (_url);
+	Response _ret = co_await _sess.Get (_url, std::forward<_Ops> (_ops)...);
+	SessionPool::FreeSession (_sess);
+	co_return _ret;
 }
 
 template<TFormOption ..._Ops>
 inline Task<Response> Post (std::string _url, _Ops ..._ops) {
-	Session _sess {};
-	co_return co_await _sess.Post (_url, std::forward<_Ops> (_ops)...);
+	Session _sess = SessionPool::GetSession (_url);
+	Response _ret = co_await _sess.Post (_url, std::forward<_Ops> (_ops)...);
+	SessionPool::FreeSession (_sess);
+	co_return _ret;
 }
 template<TBodyOption _Body>
 inline Task<Response> Post (std::string _url, _Body _body) {
-	Session _sess {};
-	co_return co_await _sess.Post (_url, std::forward<_Body> (_body));
+	Session _sess = SessionPool::GetSession (_url);
+	Response _ret = co_await _sess.Post (_url, std::forward<_Body> (_body));
+	SessionPool::FreeSession (_sess);
+	co_return _ret;
 }
 template<TBodyOption _Body, TOption ..._Ops>
 inline Task<Response> Post (std::string _url, _Body _body, _Ops ..._ops) {
-	Session _sess {};
-	co_return co_await _sess.Post (_url, std::forward<_Body> (_body), std::forward<_Ops> (_ops)...);
+	Session _sess = SessionPool::GetSession (_url);
+	Response _ret = co_await _sess.Post (_url, std::forward<_Body> (_body), std::forward<_Ops> (_ops)...);
+	SessionPool::FreeSession (_sess);
+	co_return _ret;
 }
 
 template<TFormOption ..._Ops>
 inline Task<Response> Put (std::string _url, _Ops ..._ops) {
-	Session _sess {};
-	co_return co_await _sess.Put (_url, std::forward<_Ops> (_ops)...);
+	Session _sess = SessionPool::GetSession (_url);
+	Response _ret = co_await _sess.Put (_url, std::forward<_Ops> (_ops)...);
+	SessionPool::FreeSession (_sess);
+	co_return _ret;
 }
 template<TBodyOption _Body>
 inline Task<Response> Put (std::string _url, _Body _body) {
-	Session _sess {};
-	co_return co_await _sess.Put (_url, std::forward<_Body> (_body));
+	Session _sess = SessionPool::GetSession (_url);
+	Response _ret = co_await _sess.Put (_url, std::forward<_Body> (_body));
+	SessionPool::FreeSession (_sess);
+	co_return _ret;
 }
 template<TBodyOption _Body, TOption ..._Ops>
 inline Task<Response> Put (std::string _url, _Body _body, _Ops ..._ops) {
-	Session _sess {};
-	co_return co_await _sess.Put (_url, std::forward<_Body> (_body), std::forward<_Ops> (_ops)...);
+	Session _sess = SessionPool::GetSession (_url);
+	Response _ret = co_await _sess.Put (_url, std::forward<_Body> (_body), std::forward<_Ops> (_ops)...);
+	SessionPool::FreeSession (_sess);
+	co_return _ret;
 }
 
 inline Task<Response> Delete (std::string _url) {
-	Session _sess {};
-	co_return co_await _sess.Delete (_url);
+	Session _sess = SessionPool::GetSession (_url);
+	Response _ret = co_await _sess.Delete (_url);
+	SessionPool::FreeSession (_sess);
+	co_return _ret;
 }
 template<TOption ..._Ops>
 inline Task<Response> Delete (std::string _url, _Ops ..._ops) {
-	Session _sess {};
-	co_return co_await _sess.Delete (_url, std::forward<_Ops> (_ops)...);
+	Session _sess = SessionPool::GetSession (_url);
+	Response _ret = co_await _sess.Delete (_url, std::forward<_Ops> (_ops)...);
+	SessionPool::FreeSession (_sess);
+	co_return _ret;
 }
 }
 

@@ -67,6 +67,9 @@ fv::Request::SetDefaultHeader ("User-Agent", "libfv-0.0.1");
 // Setting the global Websocket ping interval
 fv::Config::WebsocketAutoPing = std::chrono::minutes (1);
 
+// Set the connection pool automatic close interval
+fv::Config::SessionPoolTimeout = std::chrono::minutes (1);
+
 // Setting SSL version
 fv::Config::SslClientVer = fv::Ssl::context::tls;
 fv::Config::SslServerVer = fv::Ssl::context::tls;

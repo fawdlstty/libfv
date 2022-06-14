@@ -23,6 +23,7 @@ inline const char *version = "libfv-0.0.6";
 #include "base.hpp"
 #include "common.hpp"
 #include "common_funcs.hpp"
+#include "common_impl.hpp"
 #include "conn.hpp"
 #include "conn_impl.hpp"
 #include "req_res.hpp"

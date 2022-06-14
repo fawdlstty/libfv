@@ -53,14 +53,16 @@ inline void _OptionApplys (Request &_r, _Op1 _op1, _Ops ..._ops) { _OptionApply 
 struct Session {
 	std::shared_ptr<IConn> Conn;
 	std::string ConnFlag = "";
+	std::chrono::steady_clock::time_point LastUseTime = std::chrono::steady_clock::now ();
 	AsyncMutex SessMtx {};
 
 	Session () {}
-	Session (const Session &_sess): Conn (_sess.Conn), ConnFlag (_sess.ConnFlag) {}
-	Session &operator= (const Session &_sess) { Conn = _sess.Conn; ConnFlag = _sess.ConnFlag; return *this; }
+	Session (const Session &_sess): Conn (_sess.Conn), ConnFlag (_sess.ConnFlag), LastUseTime (_sess.LastUseTime) {}
+	Session &operator= (const Session &_sess) { Conn = _sess.Conn; ConnFlag = _sess.ConnFlag; LastUseTime = _sess.LastUseTime; return *this; }
 	bool IsConnect () { return Conn && Conn->IsConnect (); }
 
 	Task<Response> DoMethod (Request _r) {
+		LastUseTime = std::chrono::steady_clock::now ();
 		co_await SessMtx.Lock ();
 		bool _is_lock = true;
 		try {
@@ -229,6 +231,18 @@ struct SessionPool {
 	inline static void FreeSession (const Session &_sess) {
 		std::unique_lock _ul { m_mtx };
 		m_pool [_sess.ConnFlag].emplace_back (_sess);
+	}
+
+	inline static void TimeClear () {
+		std::unique_lock _ul { m_mtx };
+		auto _now = std::chrono::steady_clock::now ();
+		for (auto &[_key, _val] : m_pool) {
+			while (!_val.empty ()) {
+				if (_val [0].LastUseTime + Config::SessionPoolTimeout > _now)
+					break;
+				_val.erase (_val.begin ());
+			}
+		}
 	}
 };
 

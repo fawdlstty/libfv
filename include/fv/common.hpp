@@ -272,39 +272,7 @@ struct Tasks {
 		std::unique_lock _ul { m_mtx };
 		m_run = false;
 	}
-	static void LoopRun () {
-		std::unique_lock _ul { m_mtx };
-		m_run = m_running = true;
-		while (m_run) {
-			_ul.unlock ();
-			if (m_ctx->run_one () == 0)
-				std::this_thread::sleep_for (std::chrono::milliseconds (1));
-			_ul.lock ();
-		}
-		m_running = false;
-	}
-	//static void LoopRun (size_t _thread = 1) {
-	//	std::unique_lock _ul { m_mtx };
-	//	m_run = m_running = true;
-	//	auto _loop_run = [] () {
-	//		std::unique_lock _ul { m_mtx };
-	//		while (m_run) {
-	//			_ul.unlock ();
-	//			if (m_ctx->run_one () == 0)
-	//				std::this_thread::sleep_for (std::chrono::milliseconds (1));
-	//			_ul.lock ();
-	//		}
-	//	};
-	//	if (_thread > 1) {
-	//		std::vector<std::unique_ptr<std::thread>> _threads;
-	//		for (size_t i = 1; i < _thread; ++i) {
-	//			_threads.emplace_back (std::make_unique<std::thread> ());
-	//		}
-	//	} else {
-	//		_loop_run ();
-	//	}
-	//	m_running = false;
-	//}
+	static void LoopRun ();
 	static IoContext &GetContext () {
 		std::unique_lock _ul { m_mtx };
 		if (!m_ctx)

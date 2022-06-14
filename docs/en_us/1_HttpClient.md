@@ -66,6 +66,7 @@ fv::Response _r = co_await fv::Get ("https://t.cn", fv::referer ("https://t.cn")
 fv::Response _r = co_await fv::Get ("https://t.cn", fv::user_agent ("Mozilla/4.0 Chrome 2333"));
 ```
 
+<!--
 ## HTTP pipeline
 
 HTTP pipeline is a solution to economize link resources.  After initiating and receiving a return from the server, the link can be retained to proceed to the next request.  This method economize system resource overhead and TCP and SSL connection time for subsequent requests.
@@ -81,3 +82,4 @@ fv::Response _r = co_await _sess.Get ("https://t.cn");
 _r = co_await _sess.Get ("https://t.cn");
 _r = co_await _sess.Get ("https://t.cn");
 ```
+-->

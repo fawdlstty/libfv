@@ -46,7 +46,6 @@ struct IConn: public IConn2 {
 
 struct TcpConn: public IConn {
 	std::shared_ptr<Tcp::socket> Socket;
-	AsyncMutex ConnMtx {};
 
 	virtual ~TcpConn () { Cancel (); Close (); }
 	Task<void> Connect (std::string _host, std::string _port) override;
@@ -83,7 +82,6 @@ protected:
 struct SslConn: public IConn {
 	Ssl::context SslCtx { Config::SslClientVer };
 	std::shared_ptr<Ssl::stream<Tcp::socket>> SslSocket;
-	AsyncMutex ConnMtx {};
 
 	virtual ~SslConn () { Cancel (); Close (); }
 	Task<void> Connect (std::string _host, std::string _port) override;

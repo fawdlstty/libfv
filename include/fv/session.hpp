@@ -54,7 +54,6 @@ struct Session {
 	std::shared_ptr<IConn> Conn;
 	std::string ConnFlag = "";
 	std::chrono::steady_clock::time_point LastUseTime = std::chrono::steady_clock::now ();
-	AsyncMutex SessMtx {};
 
 	Session () {}
 	Session (const Session &_sess): Conn (_sess.Conn), ConnFlag (_sess.ConnFlag), LastUseTime (_sess.LastUseTime) {}
@@ -63,63 +62,51 @@ struct Session {
 
 	Task<Response> DoMethod (Request _r) {
 		LastUseTime = std::chrono::steady_clock::now ();
-		co_await SessMtx.Lock ();
-		bool _is_lock = true;
-		try {
-			auto [_schema, _host, _port, _path] = _parse_url (_r.Url);
-			std::string _conn_flag = fmt::format ("{}://{}:{}", _schema, _host, _port);
-			if (!Conn || ConnFlag != _conn_flag) {
-				ConnFlag = _conn_flag;
-				if (_schema == "https") {
-					Conn = std::shared_ptr<IConn> (new SslConn {});
-				} else {
-					Conn = std::shared_ptr<IConn> (new TcpConn {});
-				}
-				auto _ip = co_await Config::DnsResolve (_host);
-				co_await Conn->Connect (_ip != "" ? _ip : _host, _port);
+		auto [_schema, _host, _port, _path] = _parse_url (_r.Url);
+		std::string _conn_flag = fmt::format ("{}://{}:{}", _schema, _host, _port);
+		if (!Conn || ConnFlag != _conn_flag) {
+			ConnFlag = _conn_flag;
+			if (_schema == "https") {
+				Conn = std::shared_ptr<IConn> (new SslConn {});
+			} else {
+				Conn = std::shared_ptr<IConn> (new TcpConn {});
 			}
-
-			_r.Schema = _schema;
-			_r.UrlPath = _path;
-
-			//// cancel
-			//AsyncTimer _timer {};
-			//if (std::chrono::duration_cast<std::chrono::nanoseconds> (_r.Timeout).count () > 0) {
-			//	_timer.WaitCallback (_r.Timeout, [_tconn = std::weak_ptr (Conn)] ()->Task<void> {
-			//		auto _conn = _tconn.lock ();
-			//		if (_conn)
-			//			_conn->Cancel ();
-			//	});
-			//}
-
-			// generate data
-			std::string _data = _r.Serilize (_host, _port, _path);
-
-			for (size_t i = 0; i < 2; i++) {
-				try {
-					// send
-					co_await Conn->Send (_data.data (), _data.size ());
-					break;
-				} catch (...) {
-					if (i == 1)
-						throw;
-				}
-				co_await Conn->Reconnect ();
-			}
-
-			SessMtx.Unlock ();
-			_is_lock = false;
-
-			// recv
-			Response _ret = co_await Response::GetFromConn (Conn);
-			//_timer.Cancel ();
-			co_return _ret;
-		} catch (...) {
-			if (_is_lock)
-				SessMtx.Unlock ();
-			Conn = nullptr;
-			throw;
+			auto _ip = co_await Config::DnsResolve (_host);
+			co_await Conn->Connect (_ip != "" ? _ip : _host, _port);
 		}
+
+		_r.Schema = _schema;
+		_r.UrlPath = _path;
+
+		//// cancel
+		//AsyncTimer _timer {};
+		//if (std::chrono::duration_cast<std::chrono::nanoseconds> (_r.Timeout).count () > 0) {
+		//	_timer.WaitCallback (_r.Timeout, [_tconn = std::weak_ptr (Conn)] ()->Task<void> {
+		//		auto _conn = _tconn.lock ();
+		//		if (_conn)
+		//			_conn->Cancel ();
+		//	});
+		//}
+
+		// generate data
+		std::string _data = _r.Serilize (_host, _port, _path);
+
+		// try once
+		bool _suc = true;
+		try {
+			co_await Conn->Send (_data.data (), _data.size ());
+		} catch (...) {
+			_suc = false;
+		}
+		if (_suc) {
+			co_return co_await Response::GetFromConn (Conn);
+		}
+
+		// try second
+		co_await Conn->Reconnect ();
+		co_await Conn->Send (_data.data (), _data.size ());
+		co_return co_await Response::GetFromConn (Conn);
+		//_timer.Cancel ();
 	}
 
 	Task<Response> Head (std::string _url) {

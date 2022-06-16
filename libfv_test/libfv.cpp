@@ -57,10 +57,9 @@ Task<void> test_client () {
 	//_r = co_await fv::Get ("https://t.cn", fv::referer ("https://t.cn"));
 	//_r = co_await fv::Get ("https://t.cn", fv::user_agent ("Mozilla/4.0 Chrome 2333"));
 
-	fv::Session _sess {};
-	fv::Response _r {};
 	while (true) {
-		_r = co_await _sess.Get ("http://www.fawdlstty.com");
+		std::cout << "1\n";
+		fv::Response _r = co_await fv::Get ("http://www.fawdlstty.com");
 		std::cout << _r.Content.size () << '\n';
 		std::cout << "press any key to continue\n";
 		::_getch ();

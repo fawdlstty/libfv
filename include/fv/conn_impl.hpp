@@ -82,38 +82,27 @@ inline Task<void> TcpConn::Connect (std::string _host, std::string _port) {
 }
 
 inline Task<void> TcpConn::Reconnect () {
-	if (!ConnMtx.TryLock ()) {
-		co_await ConnMtx.Lock ();
-		ConnMtx.Unlock ();
-		co_return;
+	Close ();
+	TmpData = "";
+	std::regex _rgx { "(\\d+\\.){3}\\d+" };
+	std::string _ip = m_host;
+	if (!std::regex_match (m_host, _rgx)) {
+		_ip = co_await Config::DnsResolve (m_host);
+		if (_ip == "")
+			_ip = m_host;
 	}
-	try {
-		Close ();
-		TmpData = "";
-		std::regex _rgx { "(\\d+\\.){3}\\d+" };
-		std::string _ip = m_host;
-		if (!std::regex_match (m_host, _rgx)) {
-			_ip = co_await Config::DnsResolve (m_host);
-			if (_ip == "")
-				_ip = m_host;
-		}
-		uint16_t _sport = (uint16_t) std::stoi (m_port);
-		if (Config::BindClientIP) {
-			Tcp::endpoint _ep (asio::ip::address::from_string (co_await Config::BindClientIP ()), 0);
-			Socket = std::make_shared<Tcp::socket> (Tasks::GetContext (), _ep);
-		} else {
-			Socket = std::make_shared<Tcp::socket> (Tasks::GetContext ());
-		}
-		co_await Socket->async_connect (Tcp::endpoint { asio::ip::address::from_string (_ip), _sport }, UseAwaitable);
-		if (!Socket->is_open ())
-			throw Exception (fmt::format ("Cannot connect to server {}", m_host));
-		if (Config::NoDelay)
-			Socket->set_option (Tcp::no_delay { true });
-	} catch (...) {
-		ConnMtx.Unlock ();
-		throw;
+	uint16_t _sport = (uint16_t) std::stoi (m_port);
+	if (Config::BindClientIP) {
+		Tcp::endpoint _ep (asio::ip::address::from_string (co_await Config::BindClientIP ()), 0);
+		Socket = std::make_shared<Tcp::socket> (Tasks::GetContext (), _ep);
+	} else {
+		Socket = std::make_shared<Tcp::socket> (Tasks::GetContext ());
 	}
-	ConnMtx.Unlock ();
+	co_await Socket->async_connect (Tcp::endpoint { asio::ip::address::from_string (_ip), _sport }, UseAwaitable);
+	if (!Socket->is_open ())
+		throw Exception (fmt::format ("Cannot connect to server {}", m_host));
+	if (Config::NoDelay)
+		Socket->set_option (Tcp::no_delay { true });
 }
 
 inline void TcpConn::Close () {
@@ -203,41 +192,30 @@ inline Task<void> SslConn::Connect (std::string _host, std::string _port) {
 }
 
 inline Task<void> SslConn::Reconnect () {
-	if (!ConnMtx.TryLock ()) {
-		co_await ConnMtx.Lock ();
-		ConnMtx.Unlock ();
-		co_return;
+	Close ();
+	TmpData = "";
+	std::regex _rgx { "(\\d+\\.){3}\\d+" };
+	std::string _ip = m_host;
+	if (!std::regex_match (m_host, _rgx)) {
+		_ip = co_await Config::DnsResolve (m_host);
+		if (_ip == "")
+			_ip = m_host;
 	}
-	try {
-		Close ();
-		TmpData = "";
-		std::regex _rgx { "(\\d+\\.){3}\\d+" };
-		std::string _ip = m_host;
-		if (!std::regex_match (m_host, _rgx)) {
-			_ip = co_await Config::DnsResolve (m_host);
-			if (_ip == "")
-				_ip = m_host;
-		}
-		uint16_t _sport = (uint16_t) std::stoi (m_port);
-		if (Config::BindClientIP) {
-			Tcp::endpoint _ep (asio::ip::address::from_string (co_await Config::BindClientIP ()), 0);
-			SslSocket = std::make_shared<Ssl::stream<Tcp::socket>> (Tcp::socket (Tasks::GetContext (), _ep), SslCtx);
-		} else {
-			SslSocket = std::make_shared<Ssl::stream<Tcp::socket>> (Tasks::GetContext (), SslCtx);
-		}
-		SslSocket->set_verify_mode (Ssl::verify_peer);
-		SslSocket->set_verify_callback (Config::SslVerifyFunc);
-		co_await SslSocket->next_layer ().async_connect (Tcp::endpoint { asio::ip::address::from_string (_ip), _sport }, UseAwaitable);
-		if (!SslSocket->next_layer ().is_open ())
-			throw Exception (fmt::format ("Cannot connect to server {}", m_host));
-		if (Config::NoDelay)
-			SslSocket->next_layer ().set_option (Tcp::no_delay { true });
-		co_await SslSocket->async_handshake (Ssl::stream_base::client, UseAwaitable);
-	} catch (...) {
-		ConnMtx.Unlock ();
-		throw;
+	uint16_t _sport = (uint16_t) std::stoi (m_port);
+	if (Config::BindClientIP) {
+		Tcp::endpoint _ep (asio::ip::address::from_string (co_await Config::BindClientIP ()), 0);
+		SslSocket = std::make_shared<Ssl::stream<Tcp::socket>> (Tcp::socket (Tasks::GetContext (), _ep), SslCtx);
+	} else {
+		SslSocket = std::make_shared<Ssl::stream<Tcp::socket>> (Tasks::GetContext (), SslCtx);
 	}
-	ConnMtx.Unlock ();
+	SslSocket->set_verify_mode (Ssl::verify_peer);
+	SslSocket->set_verify_callback (Config::SslVerifyFunc);
+	co_await SslSocket->next_layer ().async_connect (Tcp::endpoint { asio::ip::address::from_string (_ip), _sport }, UseAwaitable);
+	if (!SslSocket->next_layer ().is_open ())
+		throw Exception (fmt::format ("Cannot connect to server {}", m_host));
+	if (Config::NoDelay)
+		SslSocket->next_layer ().set_option (Tcp::no_delay { true });
+	co_await SslSocket->async_handshake (Ssl::stream_base::client, UseAwaitable);
 }
 
 inline void SslConn::Close () {

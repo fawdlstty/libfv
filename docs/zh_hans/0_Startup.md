@@ -47,7 +47,7 @@ Task<void> async_func2 (int n) {
 	co_return;
 }
 
-// 执行异步函数，可以把 std::function<Task<void> ()> 类型方法塞进去
+// 执行异步函数
 fv::Tasks::RunAsync (async_func);
 fv::Tasks::RunAsync (async_func2, 5);
 ```

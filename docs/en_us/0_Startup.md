@@ -47,7 +47,7 @@ Task<void> async_func2 (int n) {
 	co_return;
 }
 
-// To execute asynchronous functions, you can transfer std::function<Task<void> ()> type
+// To execute asynchronous functions
 fv::Tasks::RunAsync (async_func);
 fv::Tasks::RunAsync (async_func2, 5);
 ```

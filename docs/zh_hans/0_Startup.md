@@ -75,16 +75,10 @@ fv::Config::SslClientVer = fv::Ssl::context::tls;
 fv::Config::SslServerVer = fv::Ssl::context::tls;
 
 // 设置 DNS 查询函数
-fv::Config::DnsResolve = [] (std::string _host) -> Task<std::vector<std::string>> {
-	std::vector<std::string> _v;
-	try {
-		fv::Tcp::resolver _resolver { fv::Tasks::GetContext () };
-		auto _it = co_await _resolver.async_resolve (_host, "", fv::seAwaitable);
-		for (auto _i : _it)
-			_v.push_back (_i.endpoint ().address ().to_string ());
-	} catch (...) {
-	}
-	co_return _v;
+fv::Config::DnsResolve = [] (std::string _host) -> Task<std::string> {
+	Tcp::resolver _resolver { Tasks::GetContext () };
+	auto _it = co_await _resolver.async_resolve (_host, "", UseAwaitable);
+	co_return _it.begin ()->endpoint ().address ().to_string ();
 };
 
 // 设置本地客户端IP绑定查询函数

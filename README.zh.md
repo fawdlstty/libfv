@@ -12,9 +12,9 @@ libfv 是 C++20 纯头文件网络库，支持 TCP/SSL/Http/websocket 服务器�
 
 ## 文档
 
-[English Document](http://libfv.fawdlstty.com/en_us/)
+[简体中文文档](https://libfv.fawdlstty.com/zh_hans/)
 
-[简体中文文档](http://libfv.fawdlstty.com/zh_hans/)
+[English Document](https://libfv.fawdlstty.com/en_us/)
 
 [Github 在线文档](docs/)
 

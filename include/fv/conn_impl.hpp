@@ -151,9 +151,12 @@ inline TcpConn2::TcpConn2 (Tcp::socket _sock): Socket (std::move (_sock)) {
 }
 
 inline void TcpConn2::Close () {
-	if (Socket.is_open ()) {
-		//Socket.shutdown (SocketBase::shutdown_both);
-		Socket.close ();
+	try {
+		if (Socket.is_open ()) {
+			//Socket.shutdown (SocketBase::shutdown_both);
+			Socket.close ();
+		}
+	} catch (...) {
 	}
 }
 
@@ -219,11 +222,14 @@ inline Task<void> SslConn::Reconnect () {
 }
 
 inline void SslConn::Close () {
-	if (SslSocket && SslSocket->next_layer ().is_open ()) {
-		//SslSocket.next_layer ().shutdown (SocketBase::shutdown_both);
-		SslSocket->next_layer ().close ();
+	try {
+		if (SslSocket && SslSocket->next_layer ().is_open ()) {
+			//SslSocket.next_layer ().shutdown (SocketBase::shutdown_both);
+			SslSocket->next_layer ().close ();
+		}
+		SslSocket = nullptr;
+	} catch (...) {
 	}
-	SslSocket = nullptr;
 }
 
 inline Task<void> SslConn::Send (char *_data, size_t _size) {

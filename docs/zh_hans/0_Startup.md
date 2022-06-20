@@ -13,7 +13,7 @@ vcpkg install fawdlstty-libfv
 ```cpp
 // 引入库头文件（默认依赖独立asio，改用boost::asio则需定义宏）
 //#define FV_USE_BOOST_ASIO
-#include <fv/fv.hpp>
+#include <fv/fv.h>
 
 // 主函数
 int main () {

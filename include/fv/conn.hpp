@@ -20,7 +20,6 @@ struct IConn2 {
 	IConn2 () = default;
 	virtual ~IConn2 () = default;
 	virtual bool IsConnect () = 0;
-	virtual void Close () = 0;
 	virtual Task<void> Send (char *_data, size_t _size) = 0;
 	virtual void Cancel () = 0;
 
@@ -47,11 +46,10 @@ struct IConn: public IConn2 {
 struct TcpConn: public IConn {
 	std::shared_ptr<Tcp::socket> Socket;
 
-	virtual ~TcpConn () { Cancel (); Close (); }
+	virtual ~TcpConn () { Cancel (); }
 	Task<void> Connect (std::string _host, std::string _port) override;
 	Task<void> Reconnect () override;
 	bool IsConnect () override { return Socket->is_open (); }
-	void Close () override;
 	Task<void> Send (char *_data, size_t _size) override;
 	void Cancel () override;
 
@@ -67,9 +65,8 @@ struct TcpConn2: public IConn2 {
 
 	TcpConn2 (Tcp::socket _sock);
 
-	virtual ~TcpConn2 () { Cancel (); Close (); }
+	virtual ~TcpConn2 () { Cancel (); }
 	bool IsConnect () override { return Socket.is_open (); }
-	void Close () override;
 	Task<void> Send (char *_data, size_t _size) override;
 	void Cancel () override;
 
@@ -83,11 +80,10 @@ struct SslConn: public IConn {
 	Ssl::context SslCtx { Config::SslClientVer };
 	std::shared_ptr<Ssl::stream<Tcp::socket>> SslSocket;
 
-	virtual ~SslConn () { Cancel (); Close (); }
+	virtual ~SslConn () { Cancel (); }
 	Task<void> Connect (std::string _host, std::string _port) override;
 	Task<void> Reconnect () override;
 	bool IsConnect () override { return SslSocket && SslSocket->next_layer ().is_open (); }
-	void Close () override;
 	Task<void> Send (char *_data, size_t _size) override;
 	void Cancel () override;
 
@@ -103,9 +99,8 @@ struct SslConn2: public IConn2 {
 
 	SslConn2 (Ssl::stream<Tcp::socket> _sock);
 
-	virtual ~SslConn2 () { Cancel (); Close (); }
+	virtual ~SslConn2 () { Cancel (); }
 	bool IsConnect () override { return SslSocket.next_layer ().is_open (); }
-	void Close () override;
 	Task<void> Send (char *_data, size_t _size) override;
 	void Cancel () override;
 
@@ -121,7 +116,6 @@ struct WsConn: public std::enable_shared_from_this<WsConn> {
 	std::atomic_bool Run { true };
 
 	WsConn (std::shared_ptr<IConn2> _parent, bool _is_client);
-	~WsConn () { Close (); }
 	void Init ();
 	bool IsConnect () { return Parent && Parent->IsConnect (); }
 	Task<void> SendText (char *_data, size_t _size) { co_await _Send (_data, _size, WsType::Text); }

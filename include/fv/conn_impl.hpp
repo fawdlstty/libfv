@@ -82,7 +82,7 @@ inline Task<void> TcpConn::Connect (std::string _host, std::string _port) {
 }
 
 inline Task<void> TcpConn::Reconnect () {
-	Close ();
+	Socket = nullptr;
 	TmpData = "";
 	std::regex _rgx { "(\\d+\\.){3}\\d+" };
 	std::string _ip = m_host;
@@ -103,17 +103,6 @@ inline Task<void> TcpConn::Reconnect () {
 		throw Exception (fmt::format ("Cannot connect to server {}", m_host));
 	if (Config::NoDelay)
 		Socket->set_option (Tcp::no_delay { true });
-}
-
-inline void TcpConn::Close () {
-	try {
-		if (Socket && Socket->is_open ()) {
-			//Socket.shutdown (SocketBase::shutdown_both);
-			Socket->close ();
-		}
-		Socket = nullptr;
-	} catch (...) {
-	}
 }
 
 inline Task<void> TcpConn::Send (char *_data, size_t _size) {
@@ -141,6 +130,7 @@ inline void TcpConn::Cancel () {
 			Socket->cancel ();
 	} catch (...) {
 	}
+	Socket = nullptr;
 }
 
 
@@ -148,16 +138,6 @@ inline void TcpConn::Cancel () {
 inline TcpConn2::TcpConn2 (Tcp::socket _sock): Socket (std::move (_sock)) {
 	if (Config::NoDelay)
 		Socket.set_option (Tcp::no_delay { true });
-}
-
-inline void TcpConn2::Close () {
-	try {
-		if (Socket.is_open ()) {
-			//Socket.shutdown (SocketBase::shutdown_both);
-			Socket.close ();
-		}
-	} catch (...) {
-	}
 }
 
 inline Task<void> TcpConn2::Send (char *_data, size_t _size) {
@@ -174,7 +154,8 @@ inline Task<void> TcpConn2::Send (char *_data, size_t _size) {
 
 inline void TcpConn2::Cancel () {
 	try {
-		Socket.cancel ();
+		if (Socket.is_open ())
+			Socket.cancel ();
 	} catch (...) {
 	}
 }
@@ -195,7 +176,7 @@ inline Task<void> SslConn::Connect (std::string _host, std::string _port) {
 }
 
 inline Task<void> SslConn::Reconnect () {
-	Close ();
+	SslSocket = nullptr;
 	TmpData = "";
 	std::regex _rgx { "(\\d+\\.){3}\\d+" };
 	std::string _ip = m_host;
@@ -221,17 +202,6 @@ inline Task<void> SslConn::Reconnect () {
 	co_await SslSocket->async_handshake (Ssl::stream_base::client, UseAwaitable);
 }
 
-inline void SslConn::Close () {
-	try {
-		if (SslSocket && SslSocket->next_layer ().is_open ()) {
-			//SslSocket.next_layer ().shutdown (SocketBase::shutdown_both);
-			SslSocket->next_layer ().close ();
-		}
-		SslSocket = nullptr;
-	} catch (...) {
-	}
-}
-
 inline Task<void> SslConn::Send (char *_data, size_t _size) {
 	if (!SslSocket->next_layer ().is_open ())
 		throw Exception ("Cannot send data to a closed connection.");
@@ -254,6 +224,7 @@ inline void SslConn::Cancel () {
 			SslSocket->next_layer ().cancel ();
 	} catch (...) {
 	}
+	SslSocket = nullptr;
 }
 
 
@@ -261,16 +232,6 @@ inline void SslConn::Cancel () {
 inline SslConn2::SslConn2 (Ssl::stream<Tcp::socket> _sock): SslSocket (std::move (_sock)) {
 	if (Config::NoDelay)
 		SslSocket.next_layer ().set_option (Tcp::no_delay { true });
-}
-
-inline void SslConn2::Close () {
-	try {
-		if (SslSocket.next_layer ().is_open ()) {
-			//SslSocket.next_layer ().shutdown (SocketBase::shutdown_both);
-			SslSocket.next_layer ().close ();
-		}
-	} catch (...) {
-	}
 }
 
 inline Task<void> SslConn2::Send (char *_data, size_t _size) {
@@ -287,7 +248,8 @@ inline Task<void> SslConn2::Send (char *_data, size_t _size) {
 
 inline void SslConn2::Cancel () {
 	try {
-		SslSocket.next_layer ().cancel ();
+		if (SslSocket.next_layer ().is_open ())
+			SslSocket.next_layer ().cancel ();
 	} catch (...) {
 	}
 }
@@ -324,7 +286,6 @@ inline Task<std::tuple<std::string, WsType>> WsConn::Recv () {
 	bool _is_eof = (_tmp [0] & 0x80) != 0;
 	WsType _type = (WsType) (_tmp [0] & 0xf);
 	if (_type == WsType::Close) {
-		Close ();
 		throw Exception ("Remote send close msg.");
 	} else if (_type == WsType::Ping) {
 		co_await _Send (nullptr, 0, WsType::Pong);

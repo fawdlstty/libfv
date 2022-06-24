@@ -34,10 +34,4 @@ co_await _conn->Send (_str.data (), _str.size ());
 
 ## Close connection
 
-Actively close the connection:
-
-```cpp
-co_await _conn->Close ();
-```
-
-In addition to active closing, the connection is automatically closed as long as the connection object is not referenced by the code and is automatically freed by the smart pointer.
+As long as the connection object is not referenced by the code, it is automatically freed by the smart pointer and the link is closed automatically. 

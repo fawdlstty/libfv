@@ -8,14 +8,14 @@
 // Repository URL: https://github.com/fawdlstty/libfv
 // Author:         fawdlstty
 // License:        MIT
-// Version:        0.0.6
-// Last updated:   Jun 02, 2022
+// Version:        0.0.7
+// Last updated:   Jun 29, 2022
 //
 
 
 
 namespace fv {
-inline const char *version = "libfv-0.0.6";
+inline const char *version = "libfv-0.0.7";
 }
 
 

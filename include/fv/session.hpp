@@ -71,8 +71,7 @@ struct Session {
 			} else {
 				Conn = std::shared_ptr<IConn> (new TcpConn {});
 			}
-			auto _ip = co_await Config::DnsResolve (_host);
-			co_await Conn->Connect (_ip != "" ? _ip : _host, _port);
+			co_await Conn->Connect (_host, _port);
 		}
 
 		_r.Schema = _schema;

@@ -4,7 +4,7 @@
 cmake_minimum_required (VERSION 3.8)
 
 # 将源代码添加到此项目的可执行文件。
-add_executable (libfv_test "libfv.cpp")
+add_executable (libfv_test "libfv_test.cpp")
 set_property (TARGET libfv_test PROPERTY CXX_STANDARD 20)
 include_directories ("../include")
 

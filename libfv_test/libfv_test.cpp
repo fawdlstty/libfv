@@ -1,7 +1,19 @@
-﻿#include <iostream>
+﻿#define _WIN32_WINNT 0x0601
+#include <iostream>
 #include <conio.h>
 
-#define ASIO_STANDALONE
+#ifdef _MSC_VER
+#	ifdef _RESUMABLE_FUNCTIONS_SUPPORTED
+#		undef _RESUMABLE_FUNCTIONS_SUPPORTED
+#	endif
+#	ifndef __cpp_lib_coroutine
+#		define __cpp_lib_coroutine
+#	endif
+#	include <coroutine>
+#	pragma warning (disable: 4068)
+#	pragma comment (lib, "Crypt32.lib")
+#endif
+
 #include <fv/fv.h>
 
 

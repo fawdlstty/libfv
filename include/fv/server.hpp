@@ -53,24 +53,23 @@ struct TcpServer {
 		co_return _count;
 	}
 	Task<void> Run (std::string _ip, uint16_t _port) {
-		if (IsRun.load ())
-			co_return;
-		IsRun.store (true);
-		auto _executor = co_await asio::this_coro::executor;
-		Tcp::endpoint _ep { asio::ip::address::from_string (_ip), _port };
-		Acceptor = std::make_unique<Tcp::acceptor> (_executor, _ep, true);
-		try {
-			for (; IsRun.load ();) {
-				std::shared_ptr<IConn2> _conn = std::shared_ptr<IConn2> ((IConn2 *) new TcpConn2 (co_await Acceptor->async_accept (UseAwaitable)));
-				Tasks::RunAsync ([this, _conn] () -> Task<void> {
-					try {
+		Tasks::RunMainAsync ([this] (std::string _ip, uint16_t _port) -> Task<void> {
+			if (IsRun.load ())
+				co_return;
+			IsRun.store (true);
+			auto _executor = co_await asio::this_coro::executor;
+			Tcp::endpoint _ep { asio::ip::address::from_string (_ip), _port };
+			Acceptor = std::make_unique<Tcp::acceptor> (_executor, _ep, true);
+			try {
+				for (; IsRun.load ();) {
+					std::shared_ptr<IConn2> _conn = std::shared_ptr<IConn2> ((IConn2 *) new TcpConn2 (co_await Acceptor->async_accept (UseAwaitable)));
+					Tasks::RunAsync ([this, _conn] () -> Task<void> {
 						co_await OnConnect (_conn);
-					} catch (...) {
-					}
-				});
+					});
+				}
+			} catch (...) {
 			}
-		} catch (...) {
-		}
+		}, _ip, _port);
 	}
 	Task<void> Run (uint16_t _port) {
 		co_await Run ("0.0.0.0", _port);

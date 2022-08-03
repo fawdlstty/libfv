@@ -13,7 +13,7 @@ class IoCtxPool {
 public:
 	explicit IoCtxPool (size_t _nthread) {
 		if (_nthread == 0) {
-			_nthread = std::thread::hardware_concurrency ();
+			_nthread = std::thread::hardware_concurrency () - 1;
 			if (_nthread == 0)
 				_nthread = 1;
 		}

@@ -69,15 +69,15 @@ Task<void> test_client () {
 	//_r = co_await fv::Get ("https://t.cn", fv::referer ("https://t.cn"));
 	//_r = co_await fv::Get ("https://t.cn", fv::user_agent ("Mozilla/4.0 Chrome 2333"));
 
-	while (true) {
-		std::cout << "1\n";
-		fv::Response _r = co_await fv::Get ("http://www.fawdlstty.com");
-		std::cout << _r.Content.size () << '\n';
-		std::cout << "press any key to continue\n";
-		::_getch ();
-	}
-	std::this_thread::sleep_for (std::chrono::seconds (10));
-	fv::Tasks::Stop ();
+	//while (true) {
+	//	std::cout << "on while loop block\n";
+	//	fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com");
+	//	std::cout << _r.Content.size () << '\n';
+	//	std::cout << "press any key to continue\n";
+	//	::_getch ();
+	//}
+	//co_await fv::Tasks::Delay (std::chrono::seconds (10));
+	//fv::Tasks::Stop ();
 
 	//try {
 	//	std::shared_ptr<fv::WsConn> _conn = co_await fv::ConnectWS ("ws://82.157.123.54:9010/ajaxchattest", fv::header ("Origin", "http://coolaf.com"));
@@ -99,6 +99,14 @@ Task<void> test_client () {
 	//} catch (...) {
 	//	std::cout << "catch exception" << std::endl;
 	//}
+
+	fv::HttpServer _server {};
+
+	_server.SetHttpHandler ("/hello", [] (fv::Request &_req) -> Task<fv::Response> {
+		co_return fv::Response::FromText ("hello world");
+	});
+	_server.Run (8080);
+	co_return;
 }
 
 
@@ -106,7 +114,6 @@ Task<void> test_client () {
 int main () {
 	fv::Tasks::Init ();
 	fv::Tasks::RunAsync (test_client);
-	fv::Tasks::LoopRun ();
-	fv::Tasks::Release ();
+	fv::Tasks::Run ();
 	return 0;
 }

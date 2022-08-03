@@ -23,9 +23,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\include\fv\common_impl.hpp">
-      <Filter>头文件\fv</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\fv\conn.hpp">
       <Filter>头文件\fv</Filter>
     </ClInclude>
@@ -47,13 +44,19 @@
     <ClInclude Include="..\include\fv\session.hpp">
       <Filter>头文件\fv</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\fv\base.hpp">
-      <Filter>头文件\fv</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\fv\common.hpp">
       <Filter>头文件\fv</Filter>
     </ClInclude>
     <ClInclude Include="..\include\fv\common_funcs.hpp">
+      <Filter>头文件\fv</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fv\ioctx_pool.hpp">
+      <Filter>头文件\fv</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fv\declare.hpp">
+      <Filter>头文件\fv</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fv\structs.hpp">
       <Filter>头文件\fv</Filter>
     </ClInclude>
   </ItemGroup>

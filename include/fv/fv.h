@@ -8,8 +8,8 @@
 // Repository URL: https://github.com/fawdlstty/libfv
 // Author:         fawdlstty
 // License:        MIT
-// Version:        0.0.8 PreRelease
-// Last updated:   Aug 03, 2022
+// Version:        0.0.7
+// Last updated:   Jun 29, 2022
 //
 
 
@@ -20,13 +20,12 @@ inline const char *version = "libfv-0.0.7";
 
 
 
-#include "declare.hpp"
-#include "structs.hpp"
+#include "base.hpp"
 #include "common.hpp"
 #include "common_funcs.hpp"
+#include "common_impl.hpp"
 #include "conn.hpp"
 #include "conn_impl.hpp"
-#include "ioctx_pool.hpp"
 #include "req_res.hpp"
 #include "req_res_impl.hpp"
 #include "server.hpp"

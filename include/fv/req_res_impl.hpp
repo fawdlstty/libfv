@@ -21,7 +21,7 @@
 #include <nlohmann/json.hpp>
 
 #include "common.hpp"
-#include "structs.hpp"
+#include "base.hpp"
 #include "req_res.hpp"
 
 

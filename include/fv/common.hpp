@@ -10,12 +10,39 @@
 #include <thread>
 #include <unordered_map>
 
-#include "declare.hpp"
-#include "ioctx_pool.hpp"
+#ifndef FV_USE_BOOST_ASIO
+#ifndef ASIO_HAS_CO_AWAIT
+#define ASIO_HAS_CO_AWAIT
+#endif
+#include <asio.hpp>
+#include <asio/ssl.hpp>
+#else
+#ifndef BOOST_ASIO_HAS_CO_AWAIT
+#define BOOST_ASIO_HAS_CO_AWAIT
+#endif
+#include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
+#endif
 
 
 
 namespace fv {
+#ifdef FV_USE_BOOST_ASIO
+namespace asio = boost::asio;
+#endif
+
+#define Task asio::awaitable
+using Tcp = asio::ip::tcp;
+using Udp = asio::ip::udp;
+namespace Ssl = asio::ssl;
+using IoContext = asio::io_context;
+using SocketBase = asio::socket_base;
+using SslCheckCb = std::function<bool (bool, Ssl::verify_context &)>;
+inline decltype (asio::use_awaitable) &UseAwaitable = asio::use_awaitable;
+using TimeSpan = std::chrono::system_clock::duration;
+
+
+
 struct CaseInsensitiveHash {
 	size_t operator() (const std::string &str) const noexcept {
 		size_t h = 0;
@@ -204,29 +231,14 @@ struct Tasks {
 	template<typename F>
 	static void RunAsync (F &&f) {
 		std::unique_lock _ul { m_mtx };
-		if (!m_pool)
+		if (!m_ctx)
 			throw Exception ("You should invoke Init method first");
-		//
+
 		using TRet = decltype (f ());
 		if constexpr (std::is_void<TRet>::value) {
-			GetContext ().post (std::forward<F> (f));
+			m_ctx->post (std::forward<F> (f));
 		} else if constexpr (std::is_same<TRet, Task<void>>::value) {
-			asio::co_spawn (GetContext (), std::forward<F> (f), asio::detached);
-		} else {
-			static_assert (std::is_void<TRet>::value || std::is_same<TRet, Task<void>>::value, "Unsupported returns type");
-		}
-	}
-	template<typename F>
-	static void RunMainAsync (F &&f) {
-		std::unique_lock _ul { m_mtx };
-		if (!m_pool)
-			throw Exception ("You should invoke Init method first");
-		//
-		using TRet = decltype (f ());
-		if constexpr (std::is_void<TRet>::value) {
-			GetMainContext ().post (std::forward<F> (f));
-		} else if constexpr (std::is_same<TRet, Task<void>>::value) {
-			asio::co_spawn (GetMainContext (), std::forward<F> (f), asio::detached);
+			asio::co_spawn (*m_ctx, std::forward<F> (f), asio::detached);
 		} else {
 			static_assert (std::is_void<TRet>::value || std::is_same<TRet, Task<void>>::value, "Unsupported returns type");
 		}
@@ -234,57 +246,44 @@ struct Tasks {
 
 	template<typename F, typename... Args>
 	static void RunAsync (F &&f, Args... args) { return RunAsync (std::bind (f, args...)); }
-	template<typename F, typename... Args>
-	static void RunMainAsync (F &&f, Args... args) { return RunMainAsync (std::bind (f, args...)); }
-
 	static Task<void> Delay (TimeSpan _dt) {
 		asio::steady_timer timer (co_await asio::this_coro::executor);
 		timer.expires_after (_dt);
 		co_await timer.async_wait (UseAwaitable);
 	}
-
-	static void Init (size_t _thread_num = 0) {
+	static void Init (IoContext *_ctx = nullptr) {
 		::srand ((unsigned int) ::time (NULL));
 		std::unique_lock _ul { m_mtx };
-		if (m_pool)
+		if (m_ctx)
 			throw Exception ("You should only invoke Init method once");
-		m_pool = std::make_shared<IoCtxPool> (_thread_num);
+		if (_ctx) {
+			m_ctx = _ctx;
+			m_extern_ctx = true;
+		} else {
+			m_ctx = new IoContext { 1 };
+		}
 	}
-
+	static void Release () {
+		if (!m_extern_ctx)
+			delete m_ctx;
+		m_ctx = nullptr;
+	}
 	static void Stop () {
 		std::unique_lock _ul { m_mtx };
-		if (!m_pool)
-			throw Exception ("You should invoke Init method first");
 		m_run = false;
-		m_pool->Stop ();
 	}
-
-	static void Run () {
-		std::unique_lock _ul { m_mtx };
-		if (!m_pool)
-			throw Exception ("You should invoke Init method first");
-		m_run = true;
-		_ul.unlock ();
-		m_pool->Run ();
-	}
-
+	static void LoopRun ();
 	static IoContext &GetContext () {
 		std::unique_lock _ul { m_mtx };
-		if (!m_pool)
+		if (!m_ctx)
 			Init ();
-		return m_pool->GetContext ();
-	}
-	static IoContext &GetMainContext () {
-		std::unique_lock _ul { m_mtx };
-		if (!m_pool)
-			Init ();
-		return m_pool->GetMainContext ();
+		return *m_ctx;
 	}
 
 private:
 	inline static std::recursive_mutex m_mtx {};
-	inline static bool m_run = false;
-	inline static std::shared_ptr<IoCtxPool> m_pool = nullptr;
+	inline static IoContext *m_ctx = nullptr;
+	inline static bool m_run = false, m_running = false, m_extern_ctx = false;
 };
 
 struct AsyncTimer {

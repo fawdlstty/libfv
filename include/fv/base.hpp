@@ -1,5 +1,5 @@
-#ifndef __FV_STRUCTS_HPP__
-#define __FV_STRUCTS_HPP__
+#ifndef __FV_BASE_HPP__
+#define __FV_BASE_HPP__
 
 
 
@@ -91,4 +91,4 @@ concept TBodyOption = std::is_same<T, body_json>::value || std::is_same<T, body_
 
 
 
-#endif //__FV_STRUCTS_HPP__
+#endif //__FV_BASE_HPP__

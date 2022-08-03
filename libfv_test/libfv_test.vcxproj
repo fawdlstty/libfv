@@ -170,18 +170,17 @@
     <ClCompile Include="libfv_test.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\include\fv\base.hpp" />
     <ClInclude Include="..\include\fv\common.hpp" />
     <ClInclude Include="..\include\fv\common_funcs.hpp" />
+    <ClInclude Include="..\include\fv\common_impl.hpp" />
     <ClInclude Include="..\include\fv\conn.hpp" />
     <ClInclude Include="..\include\fv\conn_impl.hpp" />
-    <ClInclude Include="..\include\fv\declare.hpp" />
     <ClInclude Include="..\include\fv\fv.h" />
-    <ClInclude Include="..\include\fv\ioctx_pool.hpp" />
     <ClInclude Include="..\include\fv\req_res.hpp" />
     <ClInclude Include="..\include\fv\req_res_impl.hpp" />
     <ClInclude Include="..\include\fv\server.hpp" />
     <ClInclude Include="..\include\fv\session.hpp" />
-    <ClInclude Include="..\include\fv\structs.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

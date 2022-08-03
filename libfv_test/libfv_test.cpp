@@ -70,8 +70,8 @@ Task<void> test_client () {
 	//_r = co_await fv::Get ("https://t.cn", fv::user_agent ("Mozilla/4.0 Chrome 2333"));
 
 	while (true) {
-		std::cout << "on while loop block\n";
-		fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com");
+		std::cout << "1\n";
+		fv::Response _r = co_await fv::Get ("http://www.fawdlstty.com");
 		std::cout << _r.Content.size () << '\n';
 		std::cout << "press any key to continue\n";
 		::_getch ();
@@ -106,6 +106,7 @@ Task<void> test_client () {
 int main () {
 	fv::Tasks::Init ();
 	fv::Tasks::RunAsync (test_client);
-	fv::Tasks::Run ();
+	fv::Tasks::LoopRun ();
+	fv::Tasks::Release ();
 	return 0;
 }

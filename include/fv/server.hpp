@@ -52,27 +52,25 @@ struct TcpServer {
 		}
 		co_return _count;
 	}
-	void Run (std::string _ip, uint16_t _port) {
-		Tasks::RunMainAsync ([this] (std::string _ip, uint16_t _port) -> Task<void> {
-			if (IsRun.load ())
-				co_return;
-			IsRun.store (true);
-			auto _executor = co_await asio::this_coro::executor;
-			Tcp::endpoint _ep { asio::ip::address::from_string (_ip), _port };
-			Acceptor = std::make_unique<Tcp::acceptor> (_executor, _ep, true);
-			try {
-				for (; IsRun.load ();) {
-					std::shared_ptr<IConn2> _conn = std::shared_ptr<IConn2> ((IConn2 *) new TcpConn2 (co_await Acceptor->async_accept (UseAwaitable)));
-					Tasks::RunAsync ([this, _conn] () -> Task<void> {
-						co_await OnConnect (_conn);
-					});
-				}
-			} catch (...) {
+	Task<void> Run (std::string _ip, uint16_t _port) {
+		if (IsRun.load ())
+			co_return;
+		IsRun.store (true);
+		auto _executor = co_await asio::this_coro::executor;
+		Tcp::endpoint _ep { asio::ip::address::from_string (_ip), _port };
+		Acceptor = std::make_unique<Tcp::acceptor> (_executor, _ep, true);
+		try {
+			for (; IsRun.load ();) {
+				std::shared_ptr<IConn2> _conn = std::shared_ptr<IConn2> ((IConn2 *) new TcpConn2 (co_await Acceptor->async_accept (UseAwaitable)));
+				Tasks::RunAsync ([this, _conn] () -> Task<void> {
+					co_await OnConnect (_conn);
+				});
 			}
-		}, _ip, _port);
+		} catch (...) {
+		}
 	}
-	void Run (uint16_t _port) {
-		Run ("0.0.0.0", _port);
+	Task<void> Run (uint16_t _port) {
+		co_await Run ("0.0.0.0", _port);
 	}
 	void Stop () {
 		IsRun.store (false);
@@ -97,7 +95,7 @@ struct HttpServer {
 	void OnUnhandled (std::function<Task<fv::Response> (fv::Request &)> _cb) { m_unhandled_proc = _cb; }
 	void OnAfter (std::function<Task<void> (fv::Request &, fv::Response &)> _cb) { m_after = _cb; }
 
-	void Run (uint16_t _port) {
+	Task<void> Run (uint16_t _port) {
 		m_tcpserver.SetOnConnect ([this, _port] (std::shared_ptr<IConn2> _conn) -> Task<void> {
 			while (true) {
 				Request _req = co_await Request::GetFromConn (_conn, _port);
@@ -134,7 +132,7 @@ struct HttpServer {
 				co_await _conn->Send (_str_res.data (), _str_res.size ());
 			}
 		});
-		m_tcpserver.Run (_port);
+		co_await m_tcpserver.Run (_port);
 	}
 
 	void Stop () { m_tcpserver.Stop (); }

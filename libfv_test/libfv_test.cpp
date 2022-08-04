@@ -50,7 +50,7 @@
 
 
 
-Task<void> test_client () {
+void test_client () {
 	////std::string _ip = co_await fv::Config::DnsResolve ("www.baidu.com");
 	//fv::Response _r = co_await fv::Get ("https://t.cn");
 	//_r = co_await fv::Get ("https://t.cn", fv::timeout (std::chrono::seconds (10)));
@@ -99,21 +99,25 @@ Task<void> test_client () {
 	//} catch (...) {
 	//	std::cout << "catch exception" << std::endl;
 	//}
+}
 
+
+
+Task<void> test_server () {
 	fv::HttpServer _server {};
 
 	_server.SetHttpHandler ("/hello", [] (fv::Request &_req) -> Task<fv::Response> {
 		co_return fv::Response::FromText ("hello world");
 	});
-	_server.Run (8080);
-	co_return;
+	co_await _server.Run (8080);
 }
 
 
 
 int main () {
 	fv::Tasks::Init ();
-	fv::Tasks::RunAsync (test_client);
+	//fv::Tasks::RunAsync (test_client);
+	fv::Tasks::RunMainAsync (test_server);
 	fv::Tasks::Run ();
 	return 0;
 }

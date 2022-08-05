@@ -63,10 +63,7 @@ struct TcpServer {
 			for (; IsRun.load ();) {
 				std::shared_ptr<IConn2> _conn = std::shared_ptr<IConn2> ((IConn2 *) new TcpConn2 (co_await Acceptor->async_accept (UseAwaitable)));
 				Tasks::RunAsync ([this, _conn] () -> Task<void> {
-					try {
-						co_await OnConnect (_conn);
-					} catch (...) {
-					}
+					co_await OnConnect (_conn);
 				});
 			}
 		} catch (...) {

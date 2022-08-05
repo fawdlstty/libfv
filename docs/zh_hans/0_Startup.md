@@ -15,10 +15,18 @@
 
 ### 配置 vcpkg 环境
 
-通过 `vcpkg` 安装 `libfv`
+通过 `vcpkg` 安装 `libfv`：
 
 ```
 vcpkg install fawdlstty-libfv
+```
+
+或者，使用仓库最新代码：
+
+```
+vcpkg remove fawdlstty-libfv
+vcpkg install asio fmt gzip-hpp nlohmann-json openssl zlib
+git clone git@github.com:fawdlstty/libfv.git
 ```
 
 ## 初始化

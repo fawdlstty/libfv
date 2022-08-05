@@ -15,10 +15,18 @@
 
 ### Configure vcpkg
 
-First install `libfv` through `vcpkg`
+First install `libfv` through `vcpkg`:
 
 ```
 vcpkg install fawdlstty-libfv
+```
+
+Or, use the warehouse's latest code:
+
+```
+vcpkg remove fawdlstty-libfv
+vcpkg install asio fmt gzip-hpp nlohmann-json openssl zlib
+git clone git@github.com:fawdlstty/libfv.git
 ```
 
 ## Initialize

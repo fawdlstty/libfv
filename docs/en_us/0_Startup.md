@@ -38,7 +38,7 @@ git clone git@github.com:fawdlstty/libfv.git
 
 // Main function
 int main () {
-	// Global initialize (you can specified the pointer of asio::io_context)
+	// Global initialize (you can specified thread number, specify CPU thread number - 1)
 	fv::Tasks::Init ();
 
 	// ...

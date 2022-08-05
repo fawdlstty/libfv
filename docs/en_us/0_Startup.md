@@ -1,6 +1,19 @@
 # Startup
 
-## Configure vcpkg
+## Configure environment
+
+### Configure project
+
+- Windows - VS2019
+	1. Configuration Properties - General - C++ Language Standard, configure to Preview (/std:c++latest)
+	2. Configuration Properties - C++ - Command Line, add `/await`
+- Windows - VS2022
+	1. Configuration Properties - General - C++ Language Standard, configure to Preview (/std:c++latest)
+	2. Configuration Properties - C++ - Command Line, add `/await:strict`
+- Linux - gcc11.2+
+	1. TODO
+
+### Configure vcpkg
 
 First install `libfv` through `vcpkg`
 
@@ -23,17 +36,16 @@ int main () {
 	// ...
 
 	// Loop processing task (or quit when another code call `fv::Tasks::Stop ()`)
-	fv::Tasks::LoopRun ();
-
-	// Global release
-	fv::Tasks::Release ();
+	fv::Tasks::Run ();
 	return 0;
 }
 ```
 
 ## Entry asynchronous
 
-When an asynchronous function has called, it is added to the task pool with `fv::Tasks::RunAsync`
+When an asynchronous function has called, it is added to the task pool with `fv::Tasks::RunAsync` or `fv::Tasks::RunMainAsync`
+
+The one without Main is the task pool wrapped by the thread pool, and the one with Main is the task pool wrapped by a single thread (the thread that calls Run).  It is recommended that the service category carry Main and other categories do not carry Main.
 
 ```cpp
 // Asynchronous function
@@ -49,7 +61,7 @@ Task<void> async_func2 (int n) {
 
 // To execute asynchronous functions
 fv::Tasks::RunAsync (async_func);
-fv::Tasks::RunAsync (async_func2, 5);
+fv::Tasks::RunMainAsync (async_func2, 5);
 ```
 
 ## Global configuration Settings

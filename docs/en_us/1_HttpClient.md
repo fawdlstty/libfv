@@ -66,20 +66,44 @@ fv::Response _r = co_await fv::Get ("https://t.cn", fv::referer ("https://t.cn")
 fv::Response _r = co_await fv::Get ("https://t.cn", fv::user_agent ("Mozilla/4.0 Chrome 2333"));
 ```
 
-<!--
 ## HTTP pipeline
 
-HTTP pipeline is a solution to economize link resources.  After initiating and receiving a return from the server, the link can be retained to proceed to the next request.  This method economize system resource overhead and TCP and SSL connection time for subsequent requests.
+Libfv will maintain a link pool internally, providing reuse of requests for the same service address (same schema, domain name, port) without manual intervention.
 
-Here is how to use HTTP pipeline:
+## Example
 
 ```cpp
-// Creates a session
-fv::Session _sess {};
+#ifdef _MSC_VER
+#   define _WIN32_WINNT 0x0601
+#   pragma warning (disable: 4068)
+#   pragma comment (lib, "Crypt32.lib")
+//#	ifdef _RESUMABLE_FUNCTIONS_SUPPORTED
+//#		undef _RESUMABLE_FUNCTIONS_SUPPORTED
+//#	endif
+//#	ifndef __cpp_lib_coroutine
+//#		define __cpp_lib_coroutine
+//#	endif
+#endif
 
-// Multiple requests for the same TCP connect. If the schema, host, and port have not changed then reuse the link
-fv::Response _r = co_await _sess.Get ("https://t.cn");
-_r = co_await _sess.Get ("https://t.cn");
-_r = co_await _sess.Get ("https://t.cn");
+#include <iostream>
+#include <string>
+#include <fv/fv.h>
+
+
+
+Task<void> test_client () {
+	fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com");
+	std::cout << "received content length: " << _r.Content.size () << '\n';
+	std::cout << "press any key to exit\n";
+    char ch;
+    std::cin >> ch;
+    fv::Tasks::Stop ();
+}
+
+int main () {
+	fv::Tasks::Init ();
+	fv::Tasks::RunAsync (test_client);
+	fv::Tasks::Run ();
+	return 0;
+}
 ```
--->

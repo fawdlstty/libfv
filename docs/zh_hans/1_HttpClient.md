@@ -67,20 +67,44 @@ fv::Response _r = co_await fv::Get ("https://t.cn", fv::referer ("https://t.cn")
 fv::Response _r = co_await fv::Get ("https://t.cn", fv::user_agent ("Mozilla/4.0 Chrome 2333"));
 ```
 
-<!--
 ## HTTP pipeline
 
-HTTP pipeline 是一种节省链接资源的方案。在发起并获取服务端返回之后，这个链接可以保留，继续下一个请求。这种方式对后续请求会节省系统资源开销以及 TCP 及 SSL 链接耗时。
+libfv内部将维护一个链接池，提供对相同服务地址（协议、域名、端口均相同）的请求的复用，无需手工干预
 
-下面给出 HTTP pipeline 使用方式：
+## 示例
 
 ```cpp
-// 创建会话
-fv::Session _sess {};
+#ifdef _MSC_VER
+#   define _WIN32_WINNT 0x0601
+#   pragma warning (disable: 4068)
+#   pragma comment (lib, "Crypt32.lib")
+//#	ifdef _RESUMABLE_FUNCTIONS_SUPPORTED
+//#		undef _RESUMABLE_FUNCTIONS_SUPPORTED
+//#	endif
+//#	ifndef __cpp_lib_coroutine
+//#		define __cpp_lib_coroutine
+//#	endif
+#endif
 
-// 同一会话（TCP 链接）多次请求。协议、域名及端口没有变化则复用链接
-fv::Response _r = co_await _sess.Get ("https://t.cn");
-_r = co_await _sess.Get ("https://t.cn");
-_r = co_await _sess.Get ("https://t.cn");
+#include <iostream>
+#include <string>
+#include <fv/fv.h>
+
+
+
+Task<void> test_client () {
+	fv::Response _r = co_await fv::Get ("https://www.fawdlstty.com");
+	std::cout << "received content length: " << _r.Content.size () << '\n';
+	std::cout << "press any key to exit\n";
+    char ch;
+    std::cin >> ch;
+    fv::Tasks::Stop ();
+}
+
+int main () {
+	fv::Tasks::Init ();
+	fv::Tasks::RunAsync (test_client);
+	fv::Tasks::Run ();
+	return 0;
+}
 ```
--->

@@ -87,3 +87,7 @@ Get the count of available resources:
 ```cpp
 size_t _count = _mtx.GetResCount ();
 ```
+
+## Example
+
+TODO

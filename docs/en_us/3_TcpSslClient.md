@@ -35,3 +35,7 @@ co_await _conn->Send (_str.data (), _str.size ());
 ## Close connection
 
 As long as the connection object is not referenced by the code, it is automatically freed by the smart pointer and the link is closed automatically. 
+
+## Example
+
+TODO

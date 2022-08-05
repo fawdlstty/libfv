@@ -87,3 +87,7 @@ _mtx.Release ();
 ```cpp
 size_t _count = _mtx.GetResCount ();
 ```
+
+## 示例
+
+TODO

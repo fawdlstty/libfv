@@ -146,8 +146,10 @@ inline std::string Request::Serilize (std::string _host, std::string _port, std:
 			Headers ["Content-Type"] = Content [0] == '{' ? "application/json" : "application/x-www-form-urlencoded";
 	}
 	// TODO cookies -> headers
+		_ss << "Host: " << Headers ["Host"] << "\r\n";
 	for (auto &[_key, _value] : Headers) {
-		_ss << _key << ": " << _value << "\r\n";
+		if (_key != "Host")
+			_ss << _key << ": " << _value << "\r\n";
 	}
 	_ss << "\r\n";
 	_ss << Content;

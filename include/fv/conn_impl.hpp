@@ -192,11 +192,8 @@ inline Task<void> SslConn::Reconnect () {
 	} else {
 		SslSocket = std::make_shared<Ssl::stream<Tcp::socket>> (Tasks::GetContext (), SslCtx);
 	}
-	//// Set SNI Hostname (many hosts need this to handshake successfully)
-	//if(!SSL_set_tlsext_host_name(SslSocket->native_handle(), m_host.c_str()))
-	//{
-	//	throw Exception (fmt::format ("handshake error: {}", m_host));
-	//}
+	if (!::SSL_set_tlsext_host_name (SslSocket->native_handle (), m_host.data ()))
+		throw Exception (fmt::format ("Cannot set connect sni: {}", m_host));
 	SslSocket->set_verify_mode (Ssl::verify_peer);
 	SslSocket->set_verify_callback (Config::SslVerifyFunc);
 	co_await SslSocket->next_layer ().async_connect (Tcp::endpoint { asio::ip::address::from_string (_ip), _sport }, UseAwaitable);

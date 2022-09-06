@@ -295,32 +295,30 @@ inline Task<std::tuple<std::string, WsType>> WsConn::Recv () {
 	} else if (_type == WsType::Pong) {
 		//co_return std::make_tuple (std::string (""), WsType::Pong);
 		co_return co_await Recv ();
-	} else if (_type == WsType::Text || _type == WsType::Binary) {
-		bool _mask = _tmp [1] & 0x80;
-		long _payload_length = (long) (_tmp [1] & 0x7f);
-		if (_payload_length == 126) {
-			_tmp = co_await Parent->ReadCountVec (2);
-			_payload_length = (((long) _tmp [0]) << 8) + _tmp [1];
-		} else if (_payload_length == 127) {
-			_tmp = co_await Parent->ReadCountVec (8);
-			_payload_length = 0;
-			for (int i = 0; i < 8; ++i)
-				_payload_length = (_payload_length << 8) + _tmp [i];
-		}
-		if (_mask)
-			_tmp = co_await Parent->ReadCountVec (4);
-		std::string _s = co_await Parent->ReadCount ((size_t) _payload_length);
-		if (_mask) {
-			for (size_t i = 0; i < _s.size (); ++i)
-				_s [i] ^= _tmp [i % 4];
-		}
-		if (_type == WsType::Continue) {
-			auto [_s1, _type1] = co_await Recv ();
-			_s += _s1;
-			co_return std::make_tuple (_s, _type1);
-		} else {
-			co_return std::make_tuple (_s, _type);
-		}
+	} else if (_type == WsType::Text || _type == WsType::Binary || _type == WsType::Binary) {
+		std::string _ret = "";
+		do {
+			bool _mask = _tmp [1] & 0x80;
+			long _payload_length = (long) (_tmp [1] & 0x7f);
+			if (_payload_length == 126) {
+				_tmp = co_await Parent->ReadCountVec (2);
+				_payload_length = (((long) _tmp [0]) << 8) + _tmp [1];
+			} else if (_payload_length == 127) {
+				_tmp = co_await Parent->ReadCountVec (8);
+				_payload_length = 0;
+				for (int i = 0; i < 8; ++i)
+					_payload_length = (_payload_length << 8) + _tmp [i];
+			}
+			if (_mask)
+				_tmp = co_await Parent->ReadCountVec (4);
+			std::string _s = co_await Parent->ReadCount ((size_t) _payload_length);
+			if (_mask) {
+				for (size_t i = 0; i < _s.size (); ++i)
+					_s [i] ^= _tmp [i % 4];
+			}
+			_ret += _s;
+		} while (_type == WsType::Binary);
+		co_return std::make_tuple (_ret, _type);
 	} else {
 		Parent = nullptr;
 		throw Exception ("Unparsed websocket frame.");

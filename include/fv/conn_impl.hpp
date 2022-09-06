@@ -295,7 +295,7 @@ inline Task<std::tuple<std::string, WsType>> WsConn::Recv () {
 	} else if (_type == WsType::Pong) {
 		//co_return std::make_tuple (std::string (""), WsType::Pong);
 		co_return co_await Recv ();
-	} else if (_type == WsType::Text || _type == WsType::Binary || _type == WsType::Binary) {
+	} else if (_type == WsType::Text || _type == WsType::Binary || _type == WsType::Continue) {
 		std::string _ret = "";
 		do {
 			bool _mask = _tmp [1] & 0x80;
@@ -317,8 +317,14 @@ inline Task<std::tuple<std::string, WsType>> WsConn::Recv () {
 					_s [i] ^= _tmp [i % 4];
 			}
 			_ret += _s;
-		} while (_type == WsType::Binary);
-		co_return std::make_tuple (_ret, _type);
+		} while (_type == WsType::Continue);
+		if (_is_eof) {
+			co_return std::make_tuple (_ret, _type);
+		} else {
+			auto [_ret2, _type2] = co_await Recv ();
+			_ret += _ret2;
+			co_return std::make_tuple (_ret, _type2);
+		}
 	} else {
 		Parent = nullptr;
 		throw Exception ("Unparsed websocket frame.");

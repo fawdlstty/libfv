@@ -284,9 +284,39 @@ inline void WsConn::Init () {
 
 
 inline Task<std::tuple<std::string, WsType>> WsConn::Recv () {
-	std::vector<uint8_t> _tmp = co_await Parent->ReadCountVec (2);
-	bool _is_eof = (_tmp [0] & 0x80) != 0;
-	WsType _type = (WsType) (_tmp [0] & 0xf);
+	std::function<Task<std::tuple<bool, WsType, std::string>> ()> _read_pack = [this] () -> Task<std::tuple<bool, WsType, std::string>> {
+		std::vector<uint8_t> _tmp = co_await Parent->ReadCountVec (2);
+		bool _is_eof = (_tmp [0] & 0x80) != 0;
+		WsType _type = (WsType) (_tmp [0] & 0xf);
+		bool _mask = _tmp [1] & 0x80;
+		int64_t _payload_length = (int64_t) (_tmp [1] & 0x7f);
+		if (_payload_length <= 0)
+			co_return std::make_tuple (_is_eof, _type, std::string (""));
+		if (_payload_length == 126) {
+			_tmp = co_await Parent->ReadCountVec (2);
+			_payload_length = (((int64_t) _tmp [0]) << 8) + _tmp [1];
+		} else if (_payload_length == 127) {
+			_tmp = co_await Parent->ReadCountVec (8);
+			_payload_length = 0;
+			for (int i = 0; i < 8; ++i)
+				_payload_length = (_payload_length << 8) + _tmp [i];
+		}
+		if (_mask)
+			_tmp = co_await Parent->ReadCountVec (4);
+		std::string _s = co_await Parent->ReadCount ((size_t) _payload_length);
+		if (_mask) {
+			for (size_t i = 0; i < _s.size (); ++i)
+				_s [i] ^= _tmp [i % 4];
+		}
+		co_return std::make_tuple (_is_eof, _type, std::move (_s));
+	};
+	std::string _data2;
+	auto [_is_eof, _type, _data] = co_await _read_pack ();
+	while ((!_is_eof) || _type == WsType::Continue) {
+		std::tie (_is_eof, _type, _data2) = co_await _read_pack ();
+		_data += _data2;
+	}
+	//
 	if (_type == WsType::Close) {
 		throw Exception ("Remote send close msg.");
 	} else if (_type == WsType::Ping) {
@@ -295,41 +325,12 @@ inline Task<std::tuple<std::string, WsType>> WsConn::Recv () {
 	} else if (_type == WsType::Pong) {
 		//co_return std::make_tuple (std::string (""), WsType::Pong);
 		co_return co_await Recv ();
-	} else if (_type == WsType::Text || _type == WsType::Binary || _type == WsType::Continue) {
-		std::string _ret = "";
-		do {
-			bool _mask = _tmp [1] & 0x80;
-			long _payload_length = (long) (_tmp [1] & 0x7f);
-			if (_payload_length == 126) {
-				_tmp = co_await Parent->ReadCountVec (2);
-				_payload_length = (((long) _tmp [0]) << 8) + _tmp [1];
-			} else if (_payload_length == 127) {
-				_tmp = co_await Parent->ReadCountVec (8);
-				_payload_length = 0;
-				for (int i = 0; i < 8; ++i)
-					_payload_length = (_payload_length << 8) + _tmp [i];
-			}
-			if (_mask)
-				_tmp = co_await Parent->ReadCountVec (4);
-			std::string _s = co_await Parent->ReadCount ((size_t) _payload_length);
-			if (_mask) {
-				for (size_t i = 0; i < _s.size (); ++i)
-					_s [i] ^= _tmp [i % 4];
-			}
-			_ret += _s;
-		} while (_type == WsType::Continue);
-		if (_is_eof) {
-			co_return std::make_tuple (_ret, _type);
-		} else {
-			auto [_ret2, _type2] = co_await Recv ();
-			_ret += _ret2;
-			co_return std::make_tuple (_ret, _type2);
-		}
+	} else if (_type == WsType::Text || _type == WsType::Binary) {
+		co_return std::make_tuple (_data, _type);
 	} else {
 		Parent = nullptr;
 		throw Exception ("Unparsed websocket frame.");
 	}
-	co_return std::make_tuple (std::string (""), WsType::Close);
 }
 
 inline Task<void> WsConn::_Send (char *_data, size_t _size, WsType _type) {

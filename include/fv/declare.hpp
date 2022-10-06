@@ -22,9 +22,11 @@
 namespace fv {
 #ifdef FV_USE_BOOST_ASIO
 namespace asio = boost::asio;
+#define Task boost::asio::awaitable
+#else
+#define Task asio::awaitable
 #endif
 
-#define Task asio::awaitable
 using Tcp = asio::ip::tcp;
 using Udp = asio::ip::udp;
 namespace Ssl = asio::ssl;

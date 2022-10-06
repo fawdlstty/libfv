@@ -10,8 +10,8 @@ include_directories ("../include")
 
 # TODO: 如有需要，请添加测试并安装目标。
 
-#find_package (Boost REQUIRED [COMPONENTS <libs>...])
-#target_link_libraries (libfv_test PRIVATE Boost::boost Boost::<lib1> Boost::<lib2> ...)
+#find_package (Boost REQUIRED)
+#target_link_libraries (libfv_test PRIVATE Boost::boost)
 find_package (asio CONFIG REQUIRED)
 target_link_libraries (libfv_test PRIVATE asio asio::asio)
 

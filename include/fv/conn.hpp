@@ -128,7 +128,8 @@ private:
 };
 
 Task<std::shared_ptr<IConn>> Connect (std::string _url);
-Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url);
+template<TOption ..._Ops>
+inline Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url, _Ops ..._ops);
 }
 
 

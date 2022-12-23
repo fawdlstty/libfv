@@ -399,7 +399,8 @@ inline Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url, _Ops ..._ops) 
 		_r.Headers ["Sec-WebSocket-Version"] = "13";
 		_r.Headers ["Sec-WebSocket-Key"] = base64_encode (random_str (14));
 		//_r.Headers ["Sec-WebSocket-Extensions"] = "chat";
-		_OptionApplys (_r, _ops...);
+		if constexpr (sizeof...(_ops) > 0)
+			_OptionApplys (_r, _ops...);
 
 		// connect
 		auto _conn = std::shared_ptr<IConn> (_schema == "ws" ? (IConn *) new TcpConn {} : new SslConn {});

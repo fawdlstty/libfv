@@ -17,13 +17,13 @@ inline std::string _trim (std::string _s) {
 	size_t _start = 0, _stop = _s.size ();
 	while (_start < _stop) {
 		char _ch = _s [_start];
-		if (_ch != ' ' && _ch != '¡¡' && _ch != '\r')
+		if (_ch != ' ' && _ch != '\r')
 			break;
 		_start++;
 	}
 	while (_start < _stop) {
 		char _ch = _s [_stop - 1];
-		if (_ch != ' ' && _ch != '¡¡' && _ch != '\r')
+		if (_ch != ' ' && _ch != '\r')
 			break;
 		_stop--;
 	}

@@ -397,7 +397,7 @@ inline Task<std::shared_ptr<WsConn>> ConnectWS (std::string _url, _Ops ..._ops) 
 		_r.Headers ["Connection"] = "Upgrade";
 		_r.Headers ["Upgrade"] = "websocket";
 		_r.Headers ["Sec-WebSocket-Version"] = "13";
-		_r.Headers ["Sec-WebSocket-Key"] = base64_encode (random_str (14));
+		_r.Headers ["Sec-WebSocket-Key"] = base64_encode (random_str (16));
 		//_r.Headers ["Sec-WebSocket-Extensions"] = "chat";
 		if constexpr (sizeof...(_ops) > 0)
 			_OptionApplys (_r, _ops...);

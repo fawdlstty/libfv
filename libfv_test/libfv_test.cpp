@@ -8,6 +8,8 @@
 //#	ifndef __cpp_lib_coroutine
 //#		define __cpp_lib_coroutine
 //#	endif
+#define _SILENCE_CXX23_ALIGNED_STORAGE_DEPRECATION_WARNING
+#define _SILENCE_ALL_CXX23_DEPRECATION_WARNINGS
 #endif
 
 #include <iostream>
@@ -16,18 +18,25 @@
 
 
 
-Task<void> test_server () {
-	fv::HttpServer _server {};
-	_server.SetHttpHandler ("/hello", [] (fv::Request &_req) -> Task<fv::Response> {
-		co_return fv::Response::FromText ("hello world");
-	});
-	std::cout << "You can access from browser: http://127.0.0.1:8080/hello\n";
-	co_await _server.Run (8080);
+Task<void> test_client() {
+    try {
+        std::shared_ptr<fv::WsConn> _conn = co_await fv::ConnectWS("ws://127.0.0.1:8080/websocket");
+        std::cout << "";
+        while (true) {
+            auto [_data, _type] = co_await _conn->Recv();
+            std::cout << _data << std::endl;
+        }
+    } catch (std::exception &_e) {
+        std::cout << "catch exception: " << _e.what() << std::endl;
+    } catch (...) {
+        std::cout << "catch exception" << std::endl;
+    }
+    fv::Tasks::Stop();
 }
 
 int main () {
 	fv::Tasks::Init ();
-	fv::Tasks::RunMainAsync (test_server);
+	fv::Tasks::RunAsync (test_client);
 	fv::Tasks::Run ();
 	return 0;
 }

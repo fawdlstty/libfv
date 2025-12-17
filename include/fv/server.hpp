@@ -231,14 +231,14 @@ struct HttpServerBase {
 		}
 	}
 
-	Task<void> Run (uint16_t _port) {
+	// Primary template declaration for Run method
+	template<typename T = ServerType>
+	typename std::enable_if<std::is_same_v<T, TcpServer>, Task<void>>::type
+	Run (uint16_t _port) {
 		m_server.SetOnConnect ([_port, this] (std::shared_ptr<IConn2> _conn) -> Task<void> {
 			co_await ProcessRequests(_conn, _port);
 		});
-		
-		if constexpr (std::is_same_v<ServerType, TcpServer>) {
-			co_await m_server.Run(_port);
-		}
+		co_await m_server.Run(_port);
 	}
 	
 	// Overload for SSL server that takes SSL context
